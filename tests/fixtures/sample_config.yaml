@@ -1,0 +1,38 @@
+project_profile:
+  hook_patterns:
+    - 'RH_ScopedInstall\s*\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)'
+  stub_patterns:
+    - 'plugin::Call\w*<[^>]*(0x[0-9A-Fa-f]+)[^>]*>'
+  stub_markers: ["NOTSA_UNREACHABLE"]
+  stub_call_prefix: "plugin::Call"
+  class_macro: 'RH_ScopedClass\s*\(\s*(\w+)\s*\)'
+  source_root: "./source/game_sa"
+  source_extensions: [".cpp", ".h", ".hpp"]
+  hooks_csv: "./docs/hooks.csv"
+
+llm:
+  provider: "claude"
+  model: "claude-sonnet-4-5-20250929"
+  max_tokens: 4096
+  temperature: 0.0
+
+backend:
+  type: "ghidra-bridge"
+  cli_path: "ghidra"
+  timeout_s: 45
+
+parity:
+  enabled: true
+  call_count_warn_diff: 3
+  inline_wrapper_autoskip: false
+  cache_dir: ".cache/re-agent-parity"
+
+orchestrator:
+  max_review_rounds: 4
+  max_functions_per_class: 10
+
+output:
+  report_dir: "reports/re-agent"
+  log_dir: "reports/re-agent/logs"
+  session_file: "re-agent-progress.json"
+  format: "json"

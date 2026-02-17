@@ -1,0 +1,17 @@
+Function: CTrain::ProcessControl
+Address: 0x006F86A0
+Callers: 2 | Callees: 5
+
+void __thiscall CTrain::ProcessControl(CTrain *this)
+{
+    if (*(int *)(this + 0x50) == 5) {
+        float fVar1 = *(float *)(this + 0x144) * CTimer::GetTimeStep();
+        *(float *)(this + 0x148) = *(float *)(this + 0x148) + fVar1;
+        if (*(float *)(this + 0x148) > *(float *)(this + 0x14c)) {
+            *(float *)(this + 0x148) = *(float *)(this + 0x148) - *(float *)(this + 0x14c);
+        }
+        FUN_006f5a10(this);
+        FUN_006f5b00(this);
+    }
+    return;
+}

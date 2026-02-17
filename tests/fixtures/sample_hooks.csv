@@ -1,0 +1,5 @@
+class,fn_name,address,reversed,locked,is_virtual
+CTrain,ProcessControl,0x6F86A0,1,0,0
+CTrain,Shutdown,0x6F5900,1,0,0
+CTrain,UpdateSpeed,0x6F5A10,1,0,0
+CTrain,FindNumCarriagesPulled,0x6F5B00,0,0,0
