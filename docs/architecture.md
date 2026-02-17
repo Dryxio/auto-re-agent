@@ -18,7 +18,7 @@ CLI -> Config -> Orchestrator -> Agent Loop -> LLM Providers
 - **Config**: YAML + env + CLI overlay, project profiles
 - **Orchestrator**: Single function or class-level auto-advance
 - **Agents**: Reverser + Checker with fix loop
-- **LLM**: Protocol-based providers (Claude, OpenAI-compatible)
+- **LLM**: Protocol-based providers (Claude, Codex)
 - **Backend**: RE tool abstraction with capability flags
 - **Parity**: 11-signal verification engine with scoring
 - **Reports**: JSON/markdown output, session tracking

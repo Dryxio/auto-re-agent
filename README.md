@@ -17,7 +17,7 @@ re-agent reverse --class CTrain
     │   ├── Context Gatherer (decompile + xrefs + structs)
     │   │
     │   ├── Agent Loop (reverser → checker → fix, max N rounds)
-    │   │   ├── LLM Providers: Claude (Anthropic SDK) | OpenAI-compatible
+    │   │   ├── LLM Providers: Claude (Anthropic SDK) | Codex (OpenAI SDK)
     │   │   └── Prompt Templates (customizable .md files)
     │   │
     │   ├── Parity Engine (GREEN/YELLOW/RED verification gate)
@@ -107,7 +107,7 @@ See [docs/configuration.md](docs/configuration.md) for all options.
 ## LLM Providers
 
 - **Claude** (Anthropic SDK) — set `ANTHROPIC_API_KEY`
-- **OpenAI-compatible** (GPT-4, Azure, Codex, Together, Groq) — set `OPENAI_API_KEY` and optionally `base_url`
+- **Codex** (OpenAI SDK) — set `OPENAI_API_KEY`
 
 ## Parity Engine
 
