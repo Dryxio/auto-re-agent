@@ -31,15 +31,16 @@ re-agent reverse --class CTrain
         └── Capability flags → graceful degradation
 ```
 
+## Requirements
+
+- Python 3.10+
+- [ghidra-ai-bridge](https://github.com/Dryxio/ghidra-ai-bridge) — re-agent uses this as its backend to decompile functions, fetch xrefs, read structs/enums, and query Ghidra. Install it and point it at your Ghidra project before running `re-agent reverse`.
+- An LLM API key — `ANTHROPIC_API_KEY` for Claude or `OPENAI_API_KEY` for Codex.
+
 ## Installation
 
 ```bash
 pip install re-agent
-```
-
-For Ghidra integration:
-```bash
-pip install "re-agent[ghidra-bridge]"
 ```
 
 ## Quick Start
