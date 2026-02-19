@@ -4,7 +4,7 @@ Autonomous reverse engineering agent — orchestrates LLMs + Ghidra for scalable
 
 ## Overview
 
-Demo : Demo
+Demo :
 https://youtu.be/zBQJYMKmwAs?si=emi1kDsJ81-2-tc3
 
 re-agent automates the reverse engineering workflow by coordinating LLM agents (reverser + checker) with Ghidra decompilation through [ghidra-ai-bridge](https://github.com/dryxio/ghidra-ai-bridge). It implements a verify-then-fix loop with configurable quality gates powered by an 11-signal parity engine.
