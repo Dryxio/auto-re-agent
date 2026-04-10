@@ -17,6 +17,25 @@ CLI flags > Environment variables > YAML config > Defaults
 | `RE_AGENT_BACKEND_CLI_PATH` | `backend.cli_path` |
 | `RE_AGENT_BACKEND_TIMEOUT` | `backend.timeout_s` |
 
+## LLM Config
+
+```yaml
+llm:
+  provider: "claude"        # claude | openai | openai-compat | codex
+  model: "claude-sonnet-4-5-20250929"
+  api_key: null
+  base_url: null
+  max_tokens: 4096
+  temperature: 0.0
+  timeout_s: 1800
+```
+
+Notes:
+
+- `claude` uses the Anthropic SDK and typically reads `ANTHROPIC_API_KEY`
+- `openai` and `openai-compat` use the OpenAI-compatible chat completions provider and typically read `OPENAI_API_KEY`
+- `codex` uses the local `codex` CLI and ChatGPT login credentials instead of an API key
+
 ## Project Profile
 
 The `project_profile` section makes re-agent work across different RE projects:

@@ -5,7 +5,7 @@ from typing import Any
 
 DEFAULT_CONFIG_YAML: str = """\
 # re-agent configuration
-# See: https://github.com/example/auto-re-agent for documentation.
+# See: https://github.com/dryxio/auto-re-agent for documentation.
 
 project_profile:
   hook_patterns:

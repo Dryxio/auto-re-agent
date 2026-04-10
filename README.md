@@ -1,13 +1,12 @@
 # re-agent
 
-Autonomous reverse engineering agent — orchestrates LLMs + Ghidra for scalable binary analysis.
+Autonomous reverse-engineering agent — source-aware reverser/checker loop, objective verifier, parity engine, and Ghidra backend.
 
 ## Overview
 
-Demo :
-https://youtu.be/zBQJYMKmwAs?si=emi1kDsJ81-2-tc3
+Demo: [YouTube](https://youtu.be/zBQJYMKmwAs?si=emi1kDsJ81-2-tc3)
 
-re-agent automates the reverse engineering workflow by coordinating LLM agents (reverser + checker) with Ghidra decompilation through [ghidra-ai-bridge](https://github.com/dryxio/ghidra-ai-bridge). It implements a verify-then-fix loop with configurable quality gates powered by an 11-signal parity engine.
+re-agent automates a reverse-engineering workflow by combining a reverser/checker loop with Ghidra decompilation through [ghidra-ai-bridge](https://github.com/dryxio/ghidra-ai-bridge). The current pipeline also retrieves nearby project source context during generation and runs a conservative structural verifier before accepting checker passes.
 
 ```
 re-agent reverse --class CTrain
@@ -20,7 +19,7 @@ re-agent reverse --class CTrain
     │   ├── Context Gatherer (decompile + xrefs + structs + source retrieval)
     │   │
     │   ├── Agent Loop (reverser → checker → fix, max N rounds)
-    │   │   ├── LLM Providers: Claude (Anthropic SDK) | Codex (OpenAI SDK)
+    │   │   ├── LLM Providers: Claude | OpenAI-compatible APIs | Codex CLI
     │   │   └── Prompt Templates (customizable .md files)
     │   │
     │   ├── Objective Verifier (call-count + control-flow sanity checks)
@@ -40,7 +39,10 @@ re-agent reverse --class CTrain
 
 - Python 3.10+
 - [ghidra-ai-bridge](https://github.com/Dryxio/ghidra-ai-bridge) — re-agent uses this as its backend to decompile functions, fetch xrefs, read structs/enums, and query Ghidra. Install it and point it at your Ghidra project before running `re-agent reverse`.
-- An LLM API key — `ANTHROPIC_API_KEY` for Claude or `OPENAI_API_KEY` for Codex.
+- One supported LLM setup:
+  - `ANTHROPIC_API_KEY` for Claude
+  - `OPENAI_API_KEY` for OpenAI-compatible APIs
+  - a local `codex` CLI login for the Codex provider
 
 ## Installation
 
@@ -75,9 +77,10 @@ re-agent uses a layered configuration system (highest priority first): CLI flags
 
 ```yaml
 llm:
-  provider: claude           # claude | openai
+  provider: claude           # claude | openai | openai-compat | codex
   model: claude-sonnet-4-5-20250929
   # api_key: set via RE_AGENT_LLM_API_KEY env var
+  timeout_s: 1800
 
 backend:
   type: ghidra-bridge
@@ -114,7 +117,8 @@ See [docs/configuration.md](docs/configuration.md) for all options.
 ## LLM Providers
 
 - **Claude** (Anthropic SDK) — set `ANTHROPIC_API_KEY`
-- **Codex** (OpenAI SDK) — set `OPENAI_API_KEY`
+- **OpenAI / OpenAI-compatible** — set `OPENAI_API_KEY`, optionally set `base_url`
+- **Codex CLI** — uses local `codex exec` with ChatGPT login credentials; no API key required
 
 ## Parity Engine
 
@@ -142,6 +146,8 @@ The reversal loop also runs a conservative structural verifier after the LLM che
 - control-flow gaps where the candidate is clearly missing branches or loops
 
 This is intentionally narrower than full equivalence checking, but it catches obvious false positives before they are recorded as successful reversals.
+
+This matters in practice because an LLM checker can still false-positive on code that looks plausible while missing real branch or call structure from the binary.
 
 ## Safety
 
