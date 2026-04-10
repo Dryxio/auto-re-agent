@@ -17,11 +17,13 @@ re-agent reverse --class CTrain
     │
     ├── Orchestrator (single / class runner)
     │   ├── Function Picker (ranks by caller count, filters completed)
-    │   ├── Context Gatherer (decompile + xrefs + structs)
+    │   ├── Context Gatherer (decompile + xrefs + structs + source retrieval)
     │   │
     │   ├── Agent Loop (reverser → checker → fix, max N rounds)
     │   │   ├── LLM Providers: Claude (Anthropic SDK) | Codex (OpenAI SDK)
     │   │   └── Prompt Templates (customizable .md files)
+    │   │
+    │   ├── Objective Verifier (call-count + control-flow sanity checks)
     │   │
     │   ├── Parity Engine (GREEN/YELLOW/RED verification gate)
     │   │   ├── Source Indexer (C++ body parser)
@@ -84,6 +86,7 @@ backend:
 orchestrator:
   max_review_rounds: 4
   max_functions_per_class: 10
+  objective_verifier_enabled: true
 
 project_profile:
   source_root: ./source/game_sa
@@ -130,6 +133,15 @@ The parity engine runs 11 configurable heuristic signals to verify reversed code
 | Call count mismatch | YELLOW | Source call count differs significantly from ASM |
 | NaN logic | YELLOW | Decompile has NaN handling but source doesn't |
 | Inline wrapper | INFO | Function is a thin inline wrapper |
+
+## Objective Verifier
+
+The reversal loop also runs a conservative structural verifier after the LLM checker passes. It only blocks acceptance on strong mismatches such as:
+
+- call-count gaps between candidate code and decompile/ASM
+- control-flow gaps where the candidate is clearly missing branches or loops
+
+This is intentionally narrower than full equivalence checking, but it catches obvious false positives before they are recorded as successful reversals.
 
 ## Safety
 
