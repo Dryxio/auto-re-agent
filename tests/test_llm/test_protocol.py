@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from re_agent.llm.protocol import LLMProvider, Message
+from re_agent.llm.registry import create_provider
+from re_agent.config.schema import LLMConfig
 
 
 def test_message_creation() -> None:
@@ -45,3 +47,8 @@ def test_mock_provider_send() -> None:
     assert r1 == "Hello!"
     r2 = provider.send([Message(role="user", content="Again")])
     assert r2 == "World!"
+
+
+def test_registry_creates_codex_provider() -> None:
+    provider = create_provider(LLMConfig(provider="codex", model="gpt-5.4"))
+    assert provider.supports_conversations

@@ -39,7 +39,15 @@ def create_provider(config: LLMConfig) -> LLMProvider:
             base_url=config.base_url,
         )
 
+    if config.provider == "codex":
+        from re_agent.llm.codex_cli import CodexCLIProvider
+
+        return CodexCLIProvider(
+            model=config.model or "gpt-5.4",
+            timeout_s=config.timeout_s,
+        )
+
     raise ValueError(
         f"Unknown LLM provider: {config.provider!r}. "
-        f"Supported providers: 'claude', 'openai', 'openai-compat'."
+        f"Supported providers: 'claude', 'openai', 'openai-compat', 'codex'."
     )
