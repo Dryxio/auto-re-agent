@@ -39,3 +39,14 @@ parity:
   call_count_warn_diff: 3
   inline_wrapper_autoskip: false
 ```
+
+## Orchestrator Config
+
+```yaml
+orchestrator:
+  max_review_rounds: 4
+  max_functions_per_class: 10
+  objective_verifier_enabled: true
+  objective_call_count_tolerance: 3
+  objective_control_flow_tolerance: 2
+```
