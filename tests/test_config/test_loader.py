@@ -15,6 +15,7 @@ def test_load_default_config() -> None:
     assert config.llm.provider == "claude"
     assert config.backend.type == "ghidra-bridge"
     assert config.orchestrator.max_review_rounds == 4
+    assert config.orchestrator.objective_verifier_enabled is True
 
 
 def test_load_from_yaml(sample_config_path: Path) -> None:

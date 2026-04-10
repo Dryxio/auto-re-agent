@@ -4,9 +4,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from re_agent.agents.source_context import SourceContextBuilder
 from re_agent.backend.protocol import REBackend
+from re_agent.config.schema import ProjectProfile
 from re_agent.core.models import FunctionTarget
+from re_agent.core.session import Session
 from re_agent.llm.protocol import LLMProvider, Message
+from re_agent.parity.source_indexer import SourceIndexer
 from re_agent.utils.templates import render_template
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -17,9 +21,27 @@ REVERSED_TAG_RE = re.compile(r"REVERSED_FUNCTION:\s*(.+)")
 class ReverserAgent:
     """Gathers decompile context and asks the LLM to reverse a function."""
 
-    def __init__(self, llm: LLMProvider, backend: REBackend) -> None:
+    def __init__(
+        self,
+        llm: LLMProvider,
+        backend: REBackend,
+        source_root: Path | None = None,
+        project_profile: ProjectProfile | None = None,
+        indexer: SourceIndexer | None = None,
+        session: Session | None = None,
+        report_dir: Path | None = None,
+    ) -> None:
         self.llm = llm
         self.backend = backend
+        self._source_context_builder: SourceContextBuilder | None = None
+        if source_root is not None and project_profile is not None and source_root.exists():
+            self._source_context_builder = SourceContextBuilder(
+                source_root=source_root,
+                profile=project_profile,
+                indexer=indexer,
+                session=session,
+                report_dir=report_dir,
+            )
         self._conversation_id: str | None = None
         self.last_prompt: str = ""
         self.last_response: str = ""
@@ -54,6 +76,9 @@ class ReverserAgent:
                 structs_text = "Unavailable"
 
         system_prompt = render_template(PROMPTS_DIR / "reverser_system.md")
+        source_context = ""
+        if self._source_context_builder is not None:
+            source_context = self._source_context_builder.build(target)
         task_prompt = render_template(
             PROMPTS_DIR / "reverser_task.md",
             class_name=target.class_name,
@@ -62,7 +87,7 @@ class ReverserAgent:
             decompiled=decompiled,
             xrefs=xrefs_text or "None",
             structs=structs_text or "None",
-            source_context="",
+            source_context=source_context or "None",
         )
 
         if self._conversation_id is None and self.llm.supports_conversations:
@@ -85,15 +110,26 @@ class ReverserAgent:
         return code, tag
 
     def fix(
-        self, checker_report: str, issues: list[str],
-        fix_instructions: list[str], target: FunctionTarget,
+        self,
+        checker_report: str,
+        issues: list[str],
+        fix_instructions: list[str],
+        target: FunctionTarget,
+        objective_findings: list[str] | None = None,
     ) -> tuple[str, str]:
         """Ask the reverser to fix code based on checker feedback."""
+        all_issues = list(issues)
+        all_fix_instructions = list(fix_instructions)
+        if objective_findings:
+            all_issues.extend(f"objective verifier: {finding}" for finding in objective_findings)
+            all_fix_instructions.extend(
+                "Resolve objective mismatch: " + finding for finding in objective_findings
+            )
         fix_prompt = render_template(
             PROMPTS_DIR / "fix_instructions.md",
             checker_report=checker_report,
-            issues="\n".join(f"- {i}" for i in issues),
-            fix_instructions="\n".join(f"- {i}" for i in fix_instructions),
+            issues="\n".join(f"- {i}" for i in all_issues),
+            fix_instructions="\n".join(f"- {i}" for i in all_fix_instructions),
             class_name=target.class_name,
             function_name=target.function_name,
             address=target.address,

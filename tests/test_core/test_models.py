@@ -6,6 +6,7 @@ from re_agent.core.models import (
     Finding,
     FunctionTarget,
     HookEntry,
+    ObjectiveVerdict,
     ParityStatus,
     ReversalResult,
     Verdict,
@@ -45,6 +46,15 @@ def test_checker_verdict() -> None:
     assert v.verdict == Verdict.PASS
 
 
+def test_objective_verdict() -> None:
+    v = ObjectiveVerdict(
+        verdict=Verdict.PASS,
+        summary="Structural checks passed",
+        findings=[],
+    )
+    assert v.verdict == Verdict.PASS
+
+
 def test_hook_entry_properties() -> None:
     h = HookEntry(
         class_path="Vehicle/CTrain",
@@ -64,6 +74,7 @@ def test_reversal_result() -> None:
         target=t,
         code="void CTrain::ProcessControl() { }",
         checker_verdict=None,
+        objective_verdict=None,
         parity_status=None,
         parity_findings=[],
         rounds_used=1,

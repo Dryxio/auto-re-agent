@@ -37,6 +37,7 @@ class LLMConfig:
     base_url: str | None = None
     max_tokens: int = 4096
     temperature: float = 0.0
+    timeout_s: int = 1800
 
 
 @dataclass
@@ -66,6 +67,9 @@ class OrchestratorConfig:
 
     max_review_rounds: int = 4
     max_functions_per_class: int = 10
+    objective_verifier_enabled: bool = True
+    objective_call_count_tolerance: int = 3
+    objective_control_flow_tolerance: int = 2
 
 
 @dataclass

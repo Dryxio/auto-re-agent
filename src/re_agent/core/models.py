@@ -61,12 +61,22 @@ class CheckerVerdict:
 
 
 @dataclass
+class ObjectiveVerdict:
+    """Structured result from conservative non-LLM verification."""
+
+    verdict: Verdict
+    summary: str
+    findings: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ReversalResult:
     """Complete result of reversing one function."""
 
     target: FunctionTarget
     code: str
     checker_verdict: CheckerVerdict | None = None
+    objective_verdict: ObjectiveVerdict | None = None
     parity_status: ParityStatus | None = None
     parity_findings: list[Finding] = field(default_factory=list)
     rounds_used: int = 0

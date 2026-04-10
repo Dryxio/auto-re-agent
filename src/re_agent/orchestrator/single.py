@@ -43,6 +43,14 @@ def reverse_single(
         checker_llm=llm,
         max_rounds=config.orchestrator.max_review_rounds,
         log_dir=log_dir,
+        source_root=Path(config.project_profile.source_root),
+        project_profile=config.project_profile,
+        indexer=indexer,
+        session=session,
+        report_dir=Path(config.output.report_dir),
+        objective_verifier_enabled=config.orchestrator.objective_verifier_enabled,
+        objective_call_count_tolerance=config.orchestrator.objective_call_count_tolerance,
+        objective_control_flow_tolerance=config.orchestrator.objective_control_flow_tolerance,
     )
 
     # Write generated code to a file so users don't have to dig through logs
@@ -84,6 +92,7 @@ def reverse_single(
                 target=result.target,
                 code=result.code,
                 checker_verdict=result.checker_verdict,
+                objective_verdict=result.objective_verdict,
                 parity_status=status,
                 parity_findings=findings,
                 rounds_used=result.rounds_used,

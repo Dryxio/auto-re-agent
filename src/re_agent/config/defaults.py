@@ -31,6 +31,7 @@ llm:
   # base_url: null  # Set via RE_AGENT_LLM_BASE_URL env var
   max_tokens: 4096
   temperature: 0.0
+  timeout_s: 1800
 
 backend:
   type: "ghidra-bridge"
@@ -48,6 +49,9 @@ parity:
 orchestrator:
   max_review_rounds: 4
   max_functions_per_class: 10
+  objective_verifier_enabled: true
+  objective_call_count_tolerance: 3
+  objective_control_flow_tolerance: 2
 
 output:
   report_dir: "reports/re-agent"

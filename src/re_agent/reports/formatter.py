@@ -22,6 +22,14 @@ def format_result(result: ReversalResult, include_code: bool = True) -> str:
             lines.append("  Issues:")
             for issue in result.checker_verdict.issues:
                 lines.append(f"    - {issue}")
+    if result.objective_verdict:
+        lines.append(f"  Objective: {result.objective_verdict.verdict.value}")
+        if result.objective_verdict.summary:
+            lines.append(f"  Objective Summary: {result.objective_verdict.summary}")
+        if result.objective_verdict.findings:
+            lines.append("  Objective Findings:")
+            for finding in result.objective_verdict.findings:
+                lines.append(f"    - {finding}")
     if result.parity_status:
         lines.append(f"  Parity: {result.parity_status.value}")
     if result.parity_findings:
@@ -69,6 +77,10 @@ def _result_to_dict(result: ReversalResult) -> dict[str, Any]:
         d["verdict"] = result.checker_verdict.verdict.value
         d["summary"] = result.checker_verdict.summary
         d["issues"] = result.checker_verdict.issues
+    if result.objective_verdict:
+        d["objective_verdict"] = result.objective_verdict.verdict.value
+        d["objective_summary"] = result.objective_verdict.summary
+        d["objective_findings"] = result.objective_verdict.findings
     if result.parity_status:
         d["parity_status"] = result.parity_status.value
     if result.parity_findings:

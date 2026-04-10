@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from re_agent.agents.loop import run_fix_loop
 from re_agent.backend.stub import StubBackend
-from re_agent.core.models import FunctionTarget, Verdict
+from re_agent.core.models import AsmResult, DecompileResult, FunctionTarget, Verdict
 from re_agent.llm.protocol import Message
 
 
@@ -48,6 +48,8 @@ def test_loop_pass_first_round(tmp_path: object) -> None:
     assert result.rounds_used == 1
     assert result.checker_verdict is not None
     assert result.checker_verdict.verdict == Verdict.PASS
+    assert result.objective_verdict is not None
+    assert result.objective_verdict.verdict == Verdict.PASS
 
 
 def test_loop_fail_then_pass(tmp_path: object) -> None:
@@ -86,3 +88,65 @@ def test_loop_exhausts_rounds() -> None:
 
     assert not result.success
     assert result.rounds_used == 2
+
+
+class StructuralBackend(StubBackend):
+    def decompile(self, target: str) -> DecompileResult:
+        raw = """\
+void CTrain::ProcessControl() {
+    if (m_nState) {
+        FuncA();
+        FuncB();
+        FuncC();
+    }
+}
+// Callers: 1 | Callees: 3
+"""
+        return DecompileResult(
+            address=target,
+            name="CTrain::ProcessControl",
+            signature="void CTrain::ProcessControl()",
+            decompiled=raw,
+            raw_output=raw,
+            callers=1,
+            callees=3,
+        )
+
+    def get_asm(self, target: str) -> AsmResult | None:
+        instructions = "\n".join([
+            "00400000 CALL FuncA",
+            "00400004 CALL FuncB",
+            "00400008 CALL FuncC",
+        ])
+        return AsmResult(
+            address=target,
+            instructions=instructions,
+            instruction_count=3,
+            call_count=3,
+            has_fp_sensitive=False,
+        )
+
+
+def test_loop_objective_verifier_blocks_false_pass() -> None:
+    target = FunctionTarget(address="0x6F86A0", class_name="CTrain", function_name="ProcessControl")
+    backend = StructuralBackend()
+
+    reverser_responses = [
+        "```cpp\nvoid CTrain::ProcessControl() { }\n```\n"
+        "REVERSED_FUNCTION: CTrain::ProcessControl (0x6F86A0)",
+        "```cpp\nvoid CTrain::ProcessControl() { if (m_nState) { FuncA(); FuncB(); FuncC(); } }\n```\n"
+        "REVERSED_FUNCTION: CTrain::ProcessControl (0x6F86A0)",
+    ]
+    checker_responses = [
+        "VERDICT: PASS\nSUMMARY: Looks good\nISSUES:\n- none\nFIX_INSTRUCTIONS:\n- none",
+        "VERDICT: PASS\nSUMMARY: Looks good\nISSUES:\n- none\nFIX_INSTRUCTIONS:\n- none",
+    ]
+
+    rev_llm = MockLLM(reverser_responses)
+    chk_llm = MockLLM(checker_responses)
+    result = run_fix_loop(target, backend, rev_llm, chk_llm, max_rounds=2)
+
+    assert result.success
+    assert result.rounds_used == 2
+    assert result.objective_verdict is not None
+    assert result.objective_verdict.verdict == Verdict.PASS
