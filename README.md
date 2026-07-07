@@ -47,7 +47,7 @@ re-agent reverse --class CTrain
 ## Installation
 
 ```bash
-pip install re-agent
+pip install auto-re-agent
 ```
 
 ## Quick Start
