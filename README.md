@@ -1,12 +1,15 @@
 # auto-re-agent
 
-Evidence-driven autonomous reverse-engineering agent with optional independent
-reverser/checker models, agentic Ghidra investigation, candidate validation,
-structural verification, and parity analysis.
+[![PyPI](https://img.shields.io/pypi/v/auto-re-agent)](https://pypi.org/project/auto-re-agent/)
+[![Python](https://img.shields.io/pypi/pyversions/auto-re-agent)](https://pypi.org/project/auto-re-agent/)
+[![CI](https://github.com/Dryxio/auto-re-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Dryxio/auto-re-agent/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Release status:** the `0.2.0` code is currently available from GitHub. PyPI
-> still serves `0.1.0`, so use the source installation below until both `0.2.0`
-> packages are published.
+`auto-re-agent` is an open-source AI reverse-engineering agent that uses Ghidra
+and LLMs—including Claude, Codex, and OpenAI-compatible models—to reconstruct
+and validate C/C++ functions from compiled binaries. It combines independent
+reverser/checker models, agentic evidence gathering, candidate build and test
+gates, structural verification, and parity analysis in one autonomous workflow.
 
 Original pre-0.2 demo: [YouTube](https://youtu.be/zBQJYMKmwAs?si=emi1kDsJ81-2-tc3)
 
@@ -53,29 +56,24 @@ This is conservative verification, not a proof of semantic equivalence.
 
 ## Installation
 
-### Current 0.2.0 from GitHub
-
-Install the query bridge and agent directly from their current `main` branches:
+Install the agent and its Ghidra query bridge from PyPI:
 
 ```bash
-python3 -m pip install --upgrade \
-  "ghidra-ai-bridge @ git+https://github.com/Dryxio/ghidra-ai-bridge.git@main" \
-  "auto-re-agent @ git+https://github.com/Dryxio/auto-re-agent.git@main"
+python3 -m pip install --upgrade "auto-re-agent[ghidra-bridge]>=0.2.0"
 ```
 
 For headless Ghidra exports, install the bridge with its PyGhidra extra:
 
 ```bash
-python3 -m pip install --upgrade \
-  "ghidra-ai-bridge[headless] @ git+https://github.com/Dryxio/ghidra-ai-bridge.git@main" \
-  "auto-re-agent @ git+https://github.com/Dryxio/auto-re-agent.git@main"
+python3 -m pip install --upgrade "auto-re-agent[headless]>=0.2.0"
 ```
 
-After `0.2.0` is published on PyPI, the equivalent installation will be:
+To install the latest development versions directly from GitHub instead:
 
 ```bash
-python3 -m pip install --upgrade "auto-re-agent[ghidra-bridge]>=0.2.0"
-# Or: python3 -m pip install --upgrade "auto-re-agent[headless]>=0.2.0"
+python3 -m pip install --upgrade \
+  "ghidra-ai-bridge @ git+https://github.com/Dryxio/ghidra-ai-bridge.git@main" \
+  "auto-re-agent @ git+https://github.com/Dryxio/auto-re-agent.git@main"
 ```
 
 ## Set up Ghidra evidence
@@ -368,6 +366,62 @@ Default artifacts include:
 
 The session file is atomically rewritten on save. Its `functions` map stores the
 latest state per address, while its `runs` list preserves recorded attempts.
+
+## How it compares
+
+| Approach | Primary use | Evidence and validation | Workflow |
+|---|---|---|---|
+| Traditional decompiler | Translate machine code into analyst-readable pseudocode | Decompiler analysis; correctness is assessed manually | Function-by-function analysis |
+| Interactive Ghidra AI or MCP assistant | Let an analyst ask questions and request Ghidra operations | Depends on the analyst, prompts, and connected tools | Human-directed conversation |
+| `auto-re-agent` | Generate and validate candidate C/C++ implementations | Ghidra evidence, independent checker, structural checks, configured build/tests, and parity signals | Bounded autonomous reverser/checker pipeline with persistent reports |
+
+`auto-re-agent` complements Ghidra rather than replacing it: Ghidra supplies
+the program analysis, while the agent orchestrates evidence collection,
+implementation, review, validation, and reporting. It is designed for
+repeatable project-scale workflows, not just one-off decompiler chat.
+
+## Frequently asked questions
+
+### Is auto-re-agent a decompiler?
+
+Not in the traditional sense. Ghidra performs the disassembly, decompilation,
+and program analysis. `auto-re-agent` uses that evidence plus project source
+context and LLMs to produce and validate candidate C/C++ implementations.
+
+### Does it require Ghidra?
+
+The full binary-backed reversal workflow currently uses Ghidra through
+`ghidra-ai-bridge`. Existing source can be checked with source-only parity via
+`re-agent parity --skip-ghidra`, but that mode has less evidence.
+
+### Which LLM providers are supported?
+
+Claude API, Claude CLI, OpenAI-compatible APIs, and Codex CLI are supported.
+The reverser and checker can use different providers or models.
+
+### Does it modify the original source tree?
+
+No. Generated implementations are written to reports and candidate overlays.
+When isolated validation is enabled, builds and tests run in a temporary copy
+of the project.
+
+### Can it prove that generated source is equivalent to the binary?
+
+No. The checker, structural verifier, configured build/test gates, and parity
+signals provide conservative evidence, not a formal proof of semantic or
+binary equivalence.
+
+### What binaries and projects can it analyze?
+
+It can work with programs that Ghidra can import and that the bridge can export.
+Useful reconstruction also depends on project-specific source context, types,
+symbols, validation commands, and the evidence available in the target binary.
+
+### How are LLM cost and run length controlled?
+
+Review rounds, investigations, and attempts per function are bounded in the
+configuration. Provider logs record available usage and cost metadata; actual
+cost depends on the selected models, evidence volume, and target complexity.
 
 ## Safety and limitations
 

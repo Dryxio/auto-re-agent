@@ -10,7 +10,20 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Dryxio" }]
-keywords = ["reverse-engineering", "ghidra", "llm", "autonomous-agent", "binary-analysis"]
+keywords = [
+    "reverse-engineering",
+    "ghidra",
+    "llm",
+    "ai-agent",
+    "autonomous-agent",
+    "binary-analysis",
+    "decompilation",
+    "static-analysis",
+    "source-code-recovery",
+    "cybersecurity",
+    "claude",
+    "codex",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

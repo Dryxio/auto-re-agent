@@ -1,12 +1,9 @@
 # Getting Started
 
-The `0.2.0` packages are not yet published on PyPI. Install the current source
-versions from GitHub:
+Install `auto-re-agent` and the Ghidra bridge from PyPI:
 
 ```bash
-python3 -m pip install --upgrade \
-  "ghidra-ai-bridge[headless] @ git+https://github.com/Dryxio/ghidra-ai-bridge.git@main" \
-  "auto-re-agent @ git+https://github.com/Dryxio/auto-re-agent.git@main"
+python3 -m pip install --upgrade "auto-re-agent[headless]>=0.2.0"
 ```
 
 ## Prepare Ghidra
