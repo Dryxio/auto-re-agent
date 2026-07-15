@@ -1,8 +1,8 @@
 # re-agent
 
-Evidence-driven autonomous reverse-engineering agent — source-aware generation,
-agent-requested Ghidra evidence, candidate build/test gates, normalized IR checks,
-and independent reverser/checker models.
+Evidence-driven autonomous reverse-engineering agent — independent
+reverser/checker models, agentic Ghidra analysis, candidate build/test
+validation, structural verification, and parity checks.
 
 ## Overview
 
