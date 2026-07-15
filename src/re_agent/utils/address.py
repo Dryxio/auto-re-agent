@@ -14,6 +14,8 @@ def normalize_address(addr: str) -> str:
         '005e3e90'
     """
     cleaned = addr.strip().lower()
+    if ":" in cleaned:
+        cleaned = cleaned.rsplit(":", 1)[1]
     if cleaned.startswith("0x"):
         cleaned = cleaned[2:]
     return cleaned.rjust(8, "0")

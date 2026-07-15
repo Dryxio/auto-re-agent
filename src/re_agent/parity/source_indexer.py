@@ -242,12 +242,22 @@ class SourceIndexer:
 
     def _make_source_match(self, path: Path, txt: str, idx: int, open_brace: int, close_brace: int) -> SourceMatch:
         body = txt[open_brace:close_brace + 1]
+        return self.analyze_body(str(path), txt.count("\n", 0, idx) + 1, body, open_brace, close_brace + 1)
+
+    def analyze_body(
+        self,
+        path: str,
+        line: int,
+        body: str,
+        body_start: int = 0,
+        body_end: int = 0,
+    ) -> SourceMatch:
+        """Analyze a candidate body with the same rules as indexed source."""
         body_nc = strip_comments(body)
         body_lines = body.count("\n") + 1
         total, plugin, non_plugin = count_calls(body_nc, self.stub_call_prefix)
-        line = txt.count("\n", 0, idx) + 1
         return SourceMatch(
-            path=str(path),
+            path=path,
             line=line,
             body=body,
             body_no_comments=body_nc,
@@ -259,6 +269,8 @@ class SourceIndexer:
             has_stub_marker=any(marker in body_nc for marker in self.stub_markers),
             has_fp_token=has_fp_token(body_nc),
             is_inline_internal_forwarder=self._is_inline_internal_forwarder(body_nc),
+            body_start=body_start,
+            body_end=body_end,
         )
 
     def _candidate_keys(self, class_name: str, fn_name: str) -> list[tuple[str, str]]:
@@ -445,3 +457,25 @@ class SourceIndexer:
             return free
         self.lookup_cache[key] = None
         return None
+
+    def find_all(self, class_name: str, fn_name: str) -> list[SourceMatch]:
+        """Return every matching definition so overloads can be handled conservatively."""
+        if not class_name or not fn_name:
+            return []
+        matches: list[SourceMatch] = []
+        seen: set[tuple[Path, int]] = set()
+        for candidate_key in self._candidate_keys(class_name, fn_name):
+            for path, idx in self.token_index.get(candidate_key, []):
+                if (path, idx) in seen:
+                    continue
+                txt = self._read_text(path)
+                fn_start = idx + len(candidate_key[0]) + 2
+                open_brace = self._find_function_body_open(txt, fn_start, candidate_key[1])
+                if open_brace is None:
+                    continue
+                close_brace = self._find_matching_brace(txt, open_brace)
+                if close_brace is None:
+                    continue
+                seen.add((path, idx))
+                matches.append(self._make_source_match(path, txt, idx, open_brace, close_brace))
+        return matches

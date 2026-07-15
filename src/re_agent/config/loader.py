@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from re_agent.config.schema import (
+    AgentModelsConfig,
     BackendConfig,
     LLMConfig,
     OrchestratorConfig,
@@ -15,6 +16,7 @@ from re_agent.config.schema import (
     ParityConfig,
     ProjectProfile,
     ReAgentConfig,
+    ValidationConfig,
 )
 
 
@@ -145,6 +147,18 @@ def _build_backend_config(data: dict[str, Any]) -> BackendConfig:
     return _build_with_coercion(BackendConfig, data)
 
 
+def _build_agents_config(data: dict[str, Any]) -> AgentModelsConfig:
+    def role(name: str) -> LLMConfig | None:
+        value = data.get(name)
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError(f"agents.{name} must be a mapping")
+        return _build_llm_config(value)
+
+    return AgentModelsConfig(reverser=role("reverser"), checker=role("checker"))
+
+
 def _build_parity_config(data: dict[str, Any]) -> ParityConfig:
     return _build_with_coercion(ParityConfig, data)
 
@@ -157,14 +171,20 @@ def _build_output_config(data: dict[str, Any]) -> OutputConfig:
     return _build_with_coercion(OutputConfig, data)
 
 
+def _build_validation_config(data: dict[str, Any]) -> ValidationConfig:
+    return _build_with_coercion(ValidationConfig, data)
+
+
 def _build_config(raw: dict[str, Any]) -> ReAgentConfig:
     """Build a ReAgentConfig from a raw dict."""
     return ReAgentConfig(
         project_profile=_build_project_profile(raw.get("project_profile", {})),
         llm=_build_llm_config(raw.get("llm", {})),
+        agents=_build_agents_config(raw.get("agents", {})),
         backend=_build_backend_config(raw.get("backend", {})),
         parity=_build_parity_config(raw.get("parity", {})),
         orchestrator=_build_orchestrator_config(raw.get("orchestrator", {})),
+        validation=_build_validation_config(raw.get("validation", {})),
         output=_build_output_config(raw.get("output", {})),
     )
 

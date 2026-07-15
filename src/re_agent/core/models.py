@@ -70,6 +70,16 @@ class ObjectiveVerdict:
 
 
 @dataclass
+class ValidationVerdict:
+    """Result of configured candidate build and test gates."""
+
+    verdict: Verdict
+    summary: str
+    findings: list[str] = field(default_factory=list)
+    overlay_file: str | None = None
+
+
+@dataclass
 class ReversalResult:
     """Complete result of reversing one function."""
 
@@ -81,6 +91,7 @@ class ReversalResult:
     parity_findings: list[Finding] = field(default_factory=list)
     rounds_used: int = 0
     success: bool = False
+    validation_verdict: ValidationVerdict | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +176,15 @@ class AsmResult:
     has_fp_sensitive: bool
 
 
+@dataclass
+class AnalysisArtifact:
+    """Machine-readable or textual evidence returned by an RE backend."""
+
+    kind: str
+    target: str
+    content: str
+
+
 # ---------------------------------------------------------------------------
 # Source analysis data
 # ---------------------------------------------------------------------------
@@ -185,6 +205,8 @@ class SourceMatch:
     has_stub_marker: bool
     has_fp_token: bool
     is_inline_internal_forwarder: bool
+    body_start: int = 0
+    body_end: int = 0
 
 
 @dataclass

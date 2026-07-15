@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from re_agent.backend.protocol import BackendCapabilities
 from re_agent.core.models import (
+    AnalysisArtifact,
     AsmResult,
     DecompileResult,
     EnumDef,
@@ -39,6 +40,7 @@ class StubBackend:
             has_xrefs=True,
             has_search=True,
             has_enums=True,
+            has_context=True,
         )
         self._remaining = remaining_functions or []
 
@@ -70,6 +72,24 @@ class StubBackend:
         return None
 
     def get_asm(self, target: str) -> AsmResult | None:
+        return None
+
+    def get_context(self, target: str) -> AnalysisArtifact | None:
+        return AnalysisArtifact(kind="function-context", target=target, content="{}")
+
+    def get_vtable(self, target: str) -> AnalysisArtifact | None:
+        return None
+
+    def get_global(self, target: str) -> AnalysisArtifact | None:
+        return None
+
+    def search_strings(self, pattern: str) -> AnalysisArtifact | None:
+        return None
+
+    def get_pcode(self, target: str) -> AnalysisArtifact | None:
+        return None
+
+    def get_cfg(self, target: str) -> AnalysisArtifact | None:
         return None
 
     def search(self, pattern: str) -> list[FunctionEntry]:

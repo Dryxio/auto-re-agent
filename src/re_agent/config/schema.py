@@ -25,6 +25,14 @@ class ProjectProfile:
         ".cpp", ".h", ".hpp",
     ])
     hooks_csv: str | None = "docs/hooks.csv"
+    name: str = "gta-reversed"
+    language_standard: str = "C++23"
+    prompt_rules: list[str] = field(default_factory=lambda: [
+        "Use real member names from the existing project and reference headers",
+        "Never call virtual methods on this inside hook implementations",
+        "Use matrix.TransformVector(vec) instead of deprecated Multiply3x3",
+        "Verify struct offsets against project VALIDATE_OFFSET checks",
+    ])
 
 
 @dataclass
@@ -38,6 +46,23 @@ class LLMConfig:
     max_tokens: int = 4096
     temperature: float = 0.0
     timeout_s: int = 1800
+    cli_path: str | None = None
+    max_budget_usd: float | None = None
+    effort: str | None = None
+    input_cost_per_million: float = 0.0
+    output_cost_per_million: float = 0.0
+
+
+@dataclass
+class AgentModelsConfig:
+    """Optional per-role model overrides.
+
+    ``None`` keeps backwards compatibility by falling back to the top-level
+    :class:`LLMConfig`.
+    """
+
+    reverser: LLMConfig | None = None
+    checker: LLMConfig | None = None
 
 
 @dataclass
@@ -70,6 +95,32 @@ class OrchestratorConfig:
     objective_verifier_enabled: bool = True
     objective_call_count_tolerance: int = 3
     objective_control_flow_tolerance: int = 2
+    investigation_enabled: bool = True
+    max_investigations: int = 8
+    selection_strategy: str = "dependency-order"
+    max_attempts_per_function: int = 3
+
+
+@dataclass
+class ValidationConfig:
+    """Candidate overlay, build, test, and acceptance gate settings."""
+
+    enabled: bool = True
+    copy_project: bool = False
+    project_root: str = "."
+    build_commands: list[str] = field(default_factory=list)
+    test_commands: list[str] = field(default_factory=list)
+    runtime_commands: list[str] = field(default_factory=list)
+    require_build: bool = False
+    require_tests: bool = False
+    require_runtime: bool = False
+    require_verified: bool = True
+    trust_configured_commands: bool = False
+    parity_fail_on_red: bool = True
+    parity_fail_on_yellow: bool = False
+    command_timeout_s: int = 900
+    working_directory: str = "."
+    keep_project_copy: bool = False
 
 
 @dataclass
@@ -92,6 +143,8 @@ class ReAgentConfig:
     parity: ParityConfig = field(default_factory=ParityConfig)
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    agents: AgentModelsConfig = field(default_factory=AgentModelsConfig)
+    validation: ValidationConfig = field(default_factory=ValidationConfig)
 
     @classmethod
     def create_default(cls) -> ReAgentConfig:
@@ -99,8 +152,10 @@ class ReAgentConfig:
         return cls(
             project_profile=ProjectProfile(),
             llm=LLMConfig(),
+            agents=AgentModelsConfig(),
             backend=BackendConfig(),
             parity=ParityConfig(),
             orchestrator=OrchestratorConfig(),
+            validation=ValidationConfig(),
             output=OutputConfig(),
         )

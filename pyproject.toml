@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "re-agent"
-version = "0.1.0"
+name = "auto-re-agent"
+version = "0.2.0"
 description = "Autonomous reverse-engineering agent with a source-aware reverser/checker loop, objective verification, parity checks, and a Ghidra backend"
 readme = "README.md"
 license = "MIT"
@@ -30,7 +30,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ghidra-bridge = ["ghidra-ai-bridge>=0.1.0"]
+ghidra-bridge = ["ghidra-ai-bridge>=0.2.0"]
+headless = ["ghidra-ai-bridge[headless]>=0.2.0"]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.8", "mypy>=1.13"]
 
 [project.scripts]

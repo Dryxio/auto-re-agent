@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 
 from re_agent.agents.checker import CheckerAgent
@@ -37,6 +38,8 @@ def run_fix_loop(
     objective_verifier_enabled: bool = True,
     objective_call_count_tolerance: int = 3,
     objective_control_flow_tolerance: int = 2,
+    investigation_enabled: bool = True,
+    max_investigations: int = 8,
 ) -> ReversalResult:
     """Run the reverser->checker->fix loop up to max_rounds.
 
@@ -62,6 +65,8 @@ def run_fix_loop(
         indexer=indexer,
         session=session,
         report_dir=report_dir,
+        investigation_enabled=investigation_enabled,
+        max_investigations=max_investigations,
     )
     checker = CheckerAgent(checker_llm, backend)
 
@@ -98,6 +103,7 @@ def run_fix_loop(
                 "prompt": reverser.last_prompt,
                 "response": reverser.last_response,
                 "code_length": len(code),
+                "llm_metadata": _provider_metadata(reverser_llm),
             }
             log_path = log_dir / f"round{round_num}-{timestamp}-reverser.json"
             log_path.write_text(json.dumps(log_entry, indent=2), encoding="utf-8")
@@ -131,6 +137,7 @@ def run_fix_loop(
                 "objective_verdict": objective_verdict.verdict.value if objective_verdict else None,
                 "objective_summary": objective_verdict.summary if objective_verdict else "",
                 "objective_findings": objective_verdict.findings if objective_verdict else [],
+                "llm_metadata": _provider_metadata(checker_llm),
             }
             check_path = log_dir / f"round{round_num}-{timestamp}-checker.json"
             check_path.write_text(json.dumps(check_log, indent=2), encoding="utf-8")
@@ -160,3 +167,15 @@ def run_fix_loop(
         rounds_used=max_rounds,
         success=False,
     )
+
+
+def _provider_metadata(provider: LLMProvider) -> dict[str, object]:
+    metadata = getattr(provider, "last_metadata", None)
+    if metadata is None:
+        return {}
+    if is_dataclass(metadata) and not isinstance(metadata, type):
+        value = asdict(metadata)
+        return {str(k): v for k, v in value.items()}
+    if isinstance(metadata, dict):
+        return {str(k): v for k, v in metadata.items()}
+    return {}

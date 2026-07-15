@@ -1,6 +1,7 @@
 """Checker agent — verifies reversed code against Ghidra decompilation."""
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -60,6 +61,10 @@ class CheckerAgent:
 
     @staticmethod
     def _parse_verdict(response: str) -> CheckerVerdict:
+        json_verdict = CheckerAgent._parse_json_verdict(response)
+        if json_verdict is not None:
+            return json_verdict
+
         verdict_match = VERDICT_RE.search(response)
         if verdict_match:
             verdict_str = verdict_match.group(1).upper()
@@ -91,4 +96,31 @@ class CheckerAgent:
             summary=summary,
             issues=issues,
             fix_instructions=fix_instructions,
+        )
+
+    @staticmethod
+    def _parse_json_verdict(response: str) -> CheckerVerdict | None:
+        text = response.strip()
+        if text.startswith("```json") and text.endswith("```"):
+            text = text[7:-3].strip()
+        if not text.startswith("{"):
+            return None
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        raw_verdict = str(payload.get("verdict", "UNKNOWN")).upper()
+        verdict = {
+            "PASS": Verdict.PASS,
+            "FAIL": Verdict.FAIL,
+        }.get(raw_verdict, Verdict.UNKNOWN)
+        issues = payload.get("issues", [])
+        fixes = payload.get("fix_instructions", [])
+        return CheckerVerdict(
+            verdict=verdict,
+            summary=str(payload.get("summary", "")),
+            issues=[str(item) for item in issues] if isinstance(issues, list) else [],
+            fix_instructions=[str(item) for item in fixes] if isinstance(fixes, list) else [],
         )

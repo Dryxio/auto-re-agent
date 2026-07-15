@@ -1,6 +1,8 @@
 """Conservative structural verification that does not rely on an LLM."""
 from __future__ import annotations
 
+import json
+
 from re_agent.backend.protocol import REBackend
 from re_agent.core.models import FunctionTarget, ObjectiveVerdict, Verdict
 from re_agent.utils.text import count_calls, count_control_flow, strip_comments
@@ -71,6 +73,44 @@ def verify_candidate(
                     f"candidate has {source_call_count}"
                 )
 
+    if getattr(backend.capabilities, "has_cfg", False):
+        cfg = _read_ir_artifact(backend, "get_cfg", target.address)
+        if isinstance(cfg, list):
+            cfg = [item for item in cfg if isinstance(item, dict) and "index" in item]
+        if isinstance(cfg, list) and cfg:
+            checks_run += 1
+            candidate_blocks = source_flow_count + 1
+            if len(cfg) - candidate_blocks >= control_flow_tolerance:
+                findings.append(
+                    f"CFG mismatch: Ghidra has {len(cfg)} basic blocks, "
+                    f"candidate implies about {candidate_blocks}"
+                )
+
+    if getattr(backend.capabilities, "has_pcode", False):
+        pcode = _read_ir_artifact(backend, "get_pcode", target.address)
+        if isinstance(pcode, list):
+            pcode = [item for item in pcode if isinstance(item, dict) and item.get("opcode")]
+        if isinstance(pcode, list) and pcode:
+            checks_run += 1
+            opcodes = [
+                str(item.get("opcode", "")).upper()
+                for item in pcode
+                if isinstance(item, dict)
+            ]
+            ir_calls = sum(op in {"CALL", "CALLIND"} for op in opcodes)
+            if ir_calls - source_call_count >= call_count_tolerance:
+                findings.append(
+                    f"P-code call mismatch: normalized IR has {ir_calls} calls, "
+                    f"candidate has {source_call_count}"
+                )
+            ir_returns = sum(op == "RETURN" for op in opcodes)
+            source_returns = source_body.count("return")
+            if ir_returns >= 2 and source_returns == 0:
+                findings.append(
+                    f"P-code return mismatch: normalized IR has {ir_returns} returns, "
+                    "candidate has no explicit return"
+                )
+
     if findings:
         return ObjectiveVerdict(
             verdict=Verdict.FAIL,
@@ -96,3 +136,24 @@ def _extract_body(text: str) -> str:
     if open_brace == -1 or close_brace == -1 or close_brace <= open_brace:
         return text
     return text[open_brace:close_brace + 1]
+
+
+def _read_ir_artifact(backend: REBackend, method_name: str, target: str) -> object | None:
+    method = getattr(backend, method_name, None)
+    if not callable(method):
+        return None
+    try:
+        artifact = method(target)
+        if artifact is None:
+            return None
+        payload = json.loads(artifact.content)
+    except (AttributeError, json.JSONDecodeError, OSError, RuntimeError, TypeError, ValueError):
+        return None
+    if isinstance(payload, dict):
+        data = payload.get("data")
+        if isinstance(data, list) and any(
+            isinstance(item, dict) and "error" in item for item in data
+        ):
+            return None
+        return data
+    return None

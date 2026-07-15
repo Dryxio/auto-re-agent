@@ -25,6 +25,31 @@ def test_load_from_yaml(sample_config_path: Path) -> None:
     assert config.parity.call_count_warn_diff == 3
 
 
+def test_role_specific_agent_configs(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        """\
+llm:
+  provider: claude
+agents:
+  reverser:
+    provider: claude-cli
+    model: sonnet
+    max_budget_usd: 1.5
+  checker:
+    provider: codex
+    model: gpt-5.4
+""",
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    assert config.agents.reverser is not None
+    assert config.agents.reverser.provider == "claude-cli"
+    assert config.agents.reverser.max_budget_usd == 1.5
+    assert config.agents.checker is not None
+    assert config.agents.checker.provider == "codex"
+
+
 def test_cli_overrides() -> None:
     config = load_config(None, cli_overrides={"llm.provider": "openai", "orchestrator.max_review_rounds": "6"})
     assert config.llm.provider == "openai"

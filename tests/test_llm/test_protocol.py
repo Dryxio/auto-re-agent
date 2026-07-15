@@ -1,9 +1,9 @@
 """Tests for LLM protocol and provider basics."""
 from __future__ import annotations
 
+from re_agent.config.schema import LLMConfig
 from re_agent.llm.protocol import LLMProvider, Message
 from re_agent.llm.registry import create_provider
-from re_agent.config.schema import LLMConfig
 
 
 def test_message_creation() -> None:

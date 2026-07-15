@@ -40,6 +40,9 @@ class Session:
             "success": result.success,
             "rounds_used": result.rounds_used,
             "verdict": result.checker_verdict.verdict.value if result.checker_verdict else None,
+            "validation_verdict": (
+                result.validation_verdict.verdict.value if result.validation_verdict else None
+            ),
             "parity_status": result.parity_status.value if result.parity_status else None,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
         }
@@ -56,6 +59,15 @@ class Session:
         """Return True if this address has been attempted (pass or fail)."""
         addr = normalize_address(address)
         return addr in self._data["functions"]
+
+    def attempt_count(self, address: str) -> int:
+        """Return the number of recorded runs for an address."""
+        addr = normalize_address(address)
+        return sum(
+            1
+            for entry in self._data.get("runs", [])
+            if normalize_address(str(entry.get("address", ""))) == addr
+        )
 
     def get_class_summary(self, class_name: str) -> dict[str, int]:
         total = 0

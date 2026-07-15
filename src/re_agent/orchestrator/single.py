@@ -7,11 +7,17 @@ from pathlib import Path
 from re_agent.agents.loop import run_fix_loop
 from re_agent.backend.protocol import REBackend
 from re_agent.config.schema import ReAgentConfig
-from re_agent.core.models import FunctionTarget, HookEntry, ReversalResult
+from re_agent.core.models import Finding, FunctionTarget, HookEntry, ReversalResult, ValidationVerdict, Verdict
 from re_agent.core.session import Session
 from re_agent.llm.protocol import LLMProvider
 from re_agent.parity.engine import fetch_ghidra_data, score_single
 from re_agent.parity.source_indexer import SourceIndexer
+from re_agent.verification.candidate import (
+    cleanup_candidate_overlay,
+    create_candidate_overlay,
+    extract_candidate_body,
+    validate_candidate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +30,7 @@ def reverse_single(
     session: Session | None = None,
     output_dir: Path | None = None,
     indexer: SourceIndexer | None = None,
+    checker_llm: LLMProvider | None = None,
 ) -> ReversalResult:
     """Reverse a single function: agent loop -> optional parity check -> record.
 
@@ -40,7 +47,7 @@ def reverse_single(
         target=target,
         backend=backend,
         reverser_llm=llm,
-        checker_llm=llm,
+        checker_llm=checker_llm or llm,
         max_rounds=config.orchestrator.max_review_rounds,
         log_dir=log_dir,
         source_root=Path(config.project_profile.source_root),
@@ -51,6 +58,8 @@ def reverse_single(
         objective_verifier_enabled=config.orchestrator.objective_verifier_enabled,
         objective_call_count_tolerance=config.orchestrator.objective_call_count_tolerance,
         objective_control_flow_tolerance=config.orchestrator.objective_control_flow_tolerance,
+        investigation_enabled=config.orchestrator.investigation_enabled,
+        max_investigations=config.orchestrator.max_investigations,
     )
 
     # Write generated code to a file so users don't have to dig through logs
@@ -66,40 +75,109 @@ def reverse_single(
         except OSError as exc:
             logger.warning("Failed to write code file: %s", exc)
 
-    # Run parity check if enabled and code was produced
-    if config.parity.enabled and result.code:
+    # Validate the generated candidate itself, never the stale source-tree body.
+    if result.code:
+        candidate_file: Path | None = None
         try:
             if indexer is None:
                 source_root = Path(config.project_profile.source_root)
                 indexer = SourceIndexer(source_root, config.project_profile)
-            source = indexer.find(target.class_name, target.function_name)
+            source_root = Path(config.project_profile.source_root)
+            matches = indexer.find_all(target.class_name, target.function_name)
+            if len(matches) > 1:
+                locations = ", ".join(f"{match.path}:{match.line}" for match in matches)
+                raise ValueError(
+                    "Ambiguous overloaded source function; refusing to replace an arbitrary "
+                    f"definition ({locations})"
+                )
+            original_source = indexer.find_by_address(target.address)
+            if original_source is None:
+                original_source = matches[0] if matches else indexer.find(
+                    target.class_name, target.function_name
+                )
+            candidate_file = create_candidate_overlay(
+                target,
+                result.code,
+                original_source,
+                source_root,
+                Path(config.output.report_dir),
+                project_root=Path(config.validation.project_root),
+                copy_project=config.validation.copy_project,
+            )
+            candidate_body = extract_candidate_body(result.code)
+            source = indexer.analyze_body(
+                str(candidate_file),
+                original_source.line if original_source else 1,
+                candidate_body,
+            )
+
+            validation_verdict = validate_candidate(
+                config.validation,
+                candidate_file,
+                original_source.path if original_source else None,
+            )
 
             # Fetch Ghidra data from the backend for signal checks
             ghidra_data = None
-            if backend.capabilities.has_decompile:
+            if config.parity.enabled and backend.capabilities.has_decompile:
                 try:
                     ghidra_data = fetch_ghidra_data(target.address, backend)
                 except Exception:
                     logger.debug("Ghidra data fetch failed for %s, running source-only", target.address, exc_info=True)
 
-            status, findings = score_single(
-                entry=_target_to_hook(target),
-                source=source,
-                ghidra=ghidra_data,
-                config=config.parity,
-            )
+            status = None
+            findings: list[Finding] = []
+            if config.parity.enabled:
+                status, findings = score_single(
+                    entry=_target_to_hook(target),
+                    source=source,
+                    ghidra=ghidra_data,
+                    config=config.parity,
+                )
+
+            if not config.validation.enabled:
+                validation_accepted = True
+            elif config.validation.require_verified:
+                validation_accepted = validation_verdict.verdict == Verdict.PASS
+            else:
+                validation_accepted = validation_verdict.verdict != Verdict.FAIL
+            accepted = result.success and validation_accepted
+            if status is not None:
+                if config.validation.parity_fail_on_red and status.value == "red":
+                    accepted = False
+                if config.validation.parity_fail_on_yellow and status.value == "yellow":
+                    accepted = False
             result = ReversalResult(
                 target=result.target,
                 code=result.code,
                 checker_verdict=result.checker_verdict,
                 objective_verdict=result.objective_verdict,
+                validation_verdict=validation_verdict,
                 parity_status=status,
                 parity_findings=findings,
                 rounds_used=result.rounds_used,
-                success=result.success,
+                success=accepted,
             )
-        except (FileNotFoundError, ValueError) as exc:
-            logger.warning("Parity check failed for %s: %s", target.address, exc)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            logger.warning("Candidate validation failed for %s: %s", target.address, exc)
+            result.validation_verdict = ValidationVerdict(
+                verdict=Verdict.FAIL,
+                summary="Candidate overlay/validation failed",
+                findings=[str(exc)],
+            )
+            result.success = False
+        finally:
+            if (
+                candidate_file is not None
+                and config.validation.copy_project
+                and not config.validation.keep_project_copy
+            ):
+                cleanup_candidate_overlay(candidate_file)
+                if result.validation_verdict is not None:
+                    result.validation_verdict.overlay_file = None
+                    result.validation_verdict.findings.append(
+                        "Temporary isolated project copy removed after validation"
+                    )
 
     if session:
         session.record_result(result)

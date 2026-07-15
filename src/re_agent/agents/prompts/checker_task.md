@@ -12,10 +12,4 @@ ${reversed_code}
 ${decompiled}
 ```
 
-Check every line, offset, call, branch, and expression order. Output your verdict in the mandatory format:
-VERDICT: PASS or VERDICT: FAIL
-SUMMARY: ...
-ISSUES:
-- ...
-FIX_INSTRUCTIONS:
-- ...
+Check every line, offset, call, branch, and expression order. Return only the JSON object required by the system prompt.

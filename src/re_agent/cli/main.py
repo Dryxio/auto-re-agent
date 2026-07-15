@@ -9,7 +9,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="re-agent",
         description="Autonomous reverse engineering agent",
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 0.2.0")
     parser.add_argument("--config", default="re-agent.yaml", help="Config file path")
 
     sub = parser.add_subparsers(dest="command", help="Available commands")
@@ -41,6 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
     stat_p.add_argument("--class", dest="class_name", help="Filter by class")
     stat_p.add_argument("--format", choices=["text", "json", "markdown"], default="text")
 
+    # estimate
+    estimate_p = sub.add_parser("estimate", help="Estimate token usage before a run")
+    estimate_p.add_argument("--address", help="Single function address")
+    estimate_p.add_argument("--class", dest="class_name", help="Class name to estimate")
+    estimate_p.add_argument("--limit", type=int, default=50, help="Maximum functions to inspect")
+
     return parser
 
 
@@ -67,6 +73,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "status":
         from re_agent.cli.cmd_status import cmd_status
         return cmd_status(args)
+
+    if args.command == "estimate":
+        from re_agent.cli.cmd_estimate import cmd_estimate
+        return cmd_estimate(args)
 
     parser.print_help()
     return 1

@@ -30,6 +30,11 @@ def format_result(result: ReversalResult, include_code: bool = True) -> str:
             lines.append("  Objective Findings:")
             for finding in result.objective_verdict.findings:
                 lines.append(f"    - {finding}")
+    if result.validation_verdict:
+        lines.append(f"  Candidate validation: {result.validation_verdict.verdict.value}")
+        lines.append(f"  Validation summary: {result.validation_verdict.summary}")
+        if result.validation_verdict.overlay_file:
+            lines.append(f"  Candidate overlay: {result.validation_verdict.overlay_file}")
     if result.parity_status:
         lines.append(f"  Parity: {result.parity_status.value}")
     if result.parity_findings:
@@ -81,6 +86,11 @@ def _result_to_dict(result: ReversalResult) -> dict[str, Any]:
         d["objective_verdict"] = result.objective_verdict.verdict.value
         d["objective_summary"] = result.objective_verdict.summary
         d["objective_findings"] = result.objective_verdict.findings
+    if result.validation_verdict:
+        d["validation_verdict"] = result.validation_verdict.verdict.value
+        d["validation_summary"] = result.validation_verdict.summary
+        d["validation_findings"] = result.validation_verdict.findings
+        d["candidate_overlay"] = result.validation_verdict.overlay_file
     if result.parity_status:
         d["parity_status"] = result.parity_status.value
     if result.parity_findings:

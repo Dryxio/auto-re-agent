@@ -132,6 +132,15 @@ def test_find_by_address_unknown_returns_none(tmp_path: Path) -> None:
     assert indexer.find_by_address("0xDEADBEEF") is None
 
 
+def test_find_all_exposes_overloaded_definitions(tmp_path: Path) -> None:
+    (tmp_path / "CTest.cpp").write_text(
+        "void CTest::Foo(int) {}\nvoid CTest::Foo(float) {}\n",
+        encoding="utf-8",
+    )
+    indexer = SourceIndexer(tmp_path)
+    assert len(indexer.find_all("CTest", "Foo")) == 2
+
+
 def test_hook_address_index_extracts_class_name(tmp_path: Path) -> None:
     """Verify that _build_index reads RH_ScopedClass for class names."""
     src = tmp_path / "CTrain.cpp"

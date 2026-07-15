@@ -58,6 +58,14 @@ def test_subcmd_exists_unknown_command_in_stderr() -> None:
         assert backend._subcmd_exists("asm") is False
 
 
+def test_missing_executable_has_no_capabilities() -> None:
+    backend = GhidraBridgeBackend(cli_path="/definitely/missing")
+    caps = backend.capabilities
+    assert not caps.has_decompile
+    assert not caps.has_pcode
+    assert not caps.has_cfg
+
+
 def test_subcmd_exists_nonzero_no_unknown_pattern() -> None:
     """Non-zero exit with no 'unknown command' pattern means available."""
     backend = GhidraBridgeBackend(cli_path="fake-ghidra")
@@ -82,3 +90,15 @@ def test_subcmd_exists_unrecognized_args_not_false_negative() -> None:
             (1, "", "error: missing operand"),
         ]
         assert backend._subcmd_exists("asm") is True
+
+
+def test_parse_unimplemented_function_list_format() -> None:
+    entries = GhidraBridgeBackend._parse_function_list(
+        "  0x00401000  [  7 callers]  CTrain::ProcessControl\n"
+        "  0x00402000  [no callers]  Helper\n"
+    )
+    assert len(entries) == 2
+    assert entries[0].class_name == "CTrain"
+    assert entries[0].name == "ProcessControl"
+    assert entries[0].caller_count == 7
+    assert entries[1].name == "Helper"

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from re_agent.core.models import (
+    AnalysisArtifact,
     AsmResult,
     DecompileResult,
     EnumDef,
@@ -28,6 +29,12 @@ class BackendCapabilities:
     has_xrefs: bool = True
     has_search: bool = True
     has_enums: bool = False
+    has_context: bool = False
+    has_vtables: bool = False
+    has_globals: bool = False
+    has_strings: bool = False
+    has_pcode: bool = False
+    has_cfg: bool = False
 
 
 @runtime_checkable
@@ -94,3 +101,14 @@ class REBackend(Protocol):
             class_name: If provided, restrict to this class.
         """
         ...
+
+
+class EvidenceBackend(Protocol):
+    """Optional enhanced evidence API; legacy :class:`REBackend`s need not implement it."""
+
+    def get_context(self, target: str) -> AnalysisArtifact | None: ...
+    def get_vtable(self, target: str) -> AnalysisArtifact | None: ...
+    def get_global(self, target: str) -> AnalysisArtifact | None: ...
+    def search_strings(self, pattern: str) -> AnalysisArtifact | None: ...
+    def get_pcode(self, target: str) -> AnalysisArtifact | None: ...
+    def get_cfg(self, target: str) -> AnalysisArtifact | None: ...

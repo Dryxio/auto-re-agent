@@ -3,7 +3,11 @@
 ## Installation
 
 ```bash
-pip install re-agent
+# Standard installation with the Ghidra query bridge
+python3 -m pip install --upgrade "auto-re-agent[ghidra-bridge]>=0.2.0"
+
+# Or include PyGhidra for headless exports
+python3 -m pip install --upgrade "auto-re-agent[headless]>=0.2.0"
 ```
 
 ## Quick Start

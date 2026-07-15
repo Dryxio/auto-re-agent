@@ -5,6 +5,7 @@ import re
 
 from re_agent.backend.protocol import BackendCapabilities
 from re_agent.core.models import (
+    AnalysisArtifact,
     AsmResult,
     DecompileResult,
     EnumDef,
@@ -33,6 +34,7 @@ class GhidraBridgeBackend:
         self._cli_path = cli_path
         self._timeout_s = timeout_s
         self._caps: BackendCapabilities | None = None
+        self._response_cache: dict[tuple[str, ...], str] = {}
 
     # -- helpers --------------------------------------------------------------
 
@@ -42,18 +44,26 @@ class GhidraBridgeBackend:
         Raises:
             RuntimeError: If the command exits with non-zero status.
         """
+        key = tuple(args)
+        if key in self._response_cache:
+            return self._response_cache[key]
         ok, output = run_cmd([self._cli_path, *args], self._timeout_s)
         if not ok:
             raise RuntimeError(
                 f"Ghidra CLI failed: {self._cli_path} {' '.join(args)}\n{output}"
             )
+        self._response_cache[key] = output
         return output
 
     def _try_run(self, *args: str) -> str | None:
         """Execute the Ghidra CLI and return stdout, or ``None`` on failure."""
+        key = tuple(args)
+        if key in self._response_cache:
+            return self._response_cache[key]
         ok, output = run_cmd([self._cli_path, *args], self._timeout_s)
         if not ok:
             return None
+        self._response_cache[key] = output
         return output
 
     # -- capabilities ---------------------------------------------------------
@@ -88,6 +98,8 @@ class GhidraBridgeBackend:
         rc, _stdout, stderr = run_cmd_split(
             [self._cli_path, subcmd, "--help"], timeout_s=min(self._timeout_s, 10)
         )
+        if rc < 0:
+            return False
         if rc == 0:
             return True
         stderr_lower = stderr.lower()
@@ -98,6 +110,8 @@ class GhidraBridgeBackend:
         rc2, _stdout2, stderr2 = run_cmd_split(
             [self._cli_path, subcmd, "__probe__"], timeout_s=min(self._timeout_s, 10)
         )
+        if rc2 < 0:
+            return False
         if rc2 == 0:
             return True
         stderr2_lower = stderr2.lower()
@@ -110,7 +124,7 @@ class GhidraBridgeBackend:
         CLIs that return non-zero for ``--help`` or probe invocations are
         handled correctly.
         """
-        caps = BackendCapabilities(has_decompile=True)
+        caps = BackendCapabilities(has_decompile=self._subcmd_exists("decompile"))
 
         probes: list[tuple[str, str]] = [
             ("has_asm", "asm"),
@@ -118,6 +132,12 @@ class GhidraBridgeBackend:
             ("has_xrefs", "xrefs-from"),
             ("has_search", "search"),
             ("has_enums", "source-enum"),
+            ("has_context", "context"),
+            ("has_vtables", "vtable"),
+            ("has_globals", "global"),
+            ("has_strings", "strings"),
+            ("has_pcode", "pcode"),
+            ("has_cfg", "cfg"),
         ]
         for attr, subcmd in probes:
             setattr(caps, attr, self._subcmd_exists(subcmd))
@@ -263,6 +283,30 @@ class GhidraBridgeBackend:
             has_fp_sensitive=has_fp_asm(raw),
         )
 
+    def _artifact(self, kind: str, command: str, target: str) -> AnalysisArtifact | None:
+        raw = self._try_run(command, target)
+        if raw is None:
+            return None
+        return AnalysisArtifact(kind=kind, target=target, content=raw)
+
+    def get_context(self, target: str) -> AnalysisArtifact | None:
+        return self._artifact("function-context", "context", target)
+
+    def get_vtable(self, target: str) -> AnalysisArtifact | None:
+        return self._artifact("vtable", "vtable", target)
+
+    def get_global(self, target: str) -> AnalysisArtifact | None:
+        return self._artifact("global", "global", target)
+
+    def search_strings(self, pattern: str) -> AnalysisArtifact | None:
+        return self._artifact("strings", "strings", pattern)
+
+    def get_pcode(self, target: str) -> AnalysisArtifact | None:
+        return self._artifact("pcode", "pcode", target)
+
+    def get_cfg(self, target: str) -> AnalysisArtifact | None:
+        return self._artifact("cfg", "cfg", target)
+
     # -- search / unimplemented / remaining -----------------------------------
 
     def search(self, pattern: str) -> list[FunctionEntry]:
@@ -306,9 +350,20 @@ class GhidraBridgeBackend:
                 continue
 
             addr = parts[0]
+            if not re.fullmatch(r"(?:0x)?[0-9a-fA-F]+", addr):
+                continue
             name = parts[1] if len(parts) > 1 else ""
             class_name = ""
             caller_count = 0
+
+            bracketed = re.match(
+                r"^(0x[0-9a-fA-F]+)\s+\[\s*(?:(\d+)\s+callers?|no callers?)\]\s+(\S+)",
+                line,
+            )
+            if bracketed:
+                addr = bracketed.group(1)
+                caller_count = int(bracketed.group(2) or 0)
+                name = bracketed.group(3)
 
             # Split "Class::Func" into class_name and name.
             if "::" in name:

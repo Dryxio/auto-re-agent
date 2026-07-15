@@ -24,6 +24,7 @@ def reverse_class(
     llm: LLMProvider,
     session: Session | None = None,
     max_functions: int | None = None,
+    checker_llm: LLMProvider | None = None,
 ) -> list[ReversalResult]:
     """Reverse functions in a class one by one until done or limit reached.
 
@@ -54,7 +55,13 @@ def reverse_class(
             logger.warning("Source root %s not found, skipping index", source_root)
 
     for fn_idx in range(1, limit + 1):
-        target = pick_next(class_name, backend, session)
+        target = pick_next(
+            class_name,
+            backend,
+            session,
+            strategy=config.orchestrator.selection_strategy,
+            max_attempts_per_function=config.orchestrator.max_attempts_per_function,
+        )
         if target is None:
             print(f"No more candidates in {class_name}.", file=sys.stderr)
             break
@@ -65,7 +72,15 @@ def reverse_class(
             file=sys.stderr,
         )
 
-        result = reverse_single(target, config, backend, llm, session, indexer=indexer)
+        result = reverse_single(
+            target,
+            config,
+            backend,
+            llm,
+            checker_llm=checker_llm,
+            session=session,
+            indexer=indexer,
+        )
         results.append(result)
 
         status = "PASS" if result.success else "FAIL"

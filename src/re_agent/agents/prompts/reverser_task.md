@@ -1,4 +1,4 @@
-Reverse the following function into clean C++23.
+Reverse the following function into clean ${language_standard}.
 
 **Target:** ${class_name}::${function_name} at ${address}
 
@@ -15,6 +15,12 @@ ${structs}
 
 **Existing source context:**
 ${source_context}
+
+**Structured reverse-engineering evidence:**
+${investigation_context}
+
+**Project-specific rules:**
+${project_rules}
 
 Requirements:
 1. Match every branch and call from the decompile

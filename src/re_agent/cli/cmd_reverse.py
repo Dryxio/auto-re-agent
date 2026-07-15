@@ -26,7 +26,8 @@ def cmd_reverse(args: argparse.Namespace) -> int:
     from re_agent.core.session import Session
     from re_agent.llm.registry import create_provider
 
-    llm = create_provider(config.llm)
+    reverser_llm = create_provider(config.agents.reverser or config.llm)
+    checker_llm = create_provider(config.agents.checker or config.llm)
     backend = create_backend(config.backend)
     session = Session(config.output.session_file)
 
@@ -52,7 +53,14 @@ def cmd_reverse(args: argparse.Namespace) -> int:
             class_name=class_name,
             function_name=function_name,
         )
-        result = reverse_single(target, config, backend, llm, session)
+        result = reverse_single(
+            target,
+            config,
+            backend,
+            reverser_llm,
+            checker_llm=checker_llm,
+            session=session,
+        )
         print(format_result(result))
         return 0 if result.success else 1
 
@@ -63,7 +71,8 @@ def cmd_reverse(args: argparse.Namespace) -> int:
             class_name=args.class_name,
             config=config,
             backend=backend,
-            llm=llm,
+            llm=reverser_llm,
+            checker_llm=checker_llm,
             session=session,
             max_functions=args.max_functions,
         )

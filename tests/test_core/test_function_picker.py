@@ -46,3 +46,14 @@ def test_pick_next_returns_none_when_empty(tmp_path: Path) -> None:
     backend = StubBackend(remaining_functions=[])
     result = pick_next("CTest", backend, session)
     assert result is None
+
+
+def test_pick_next_dependency_order_prefers_low_caller_count(tmp_path: Path) -> None:
+    session = Session(tmp_path / "progress.json")
+    backend = StubBackend(remaining_functions=[
+        FunctionEntry(address="0x100", name="Leaf", class_name="CTest", caller_count=1),
+        FunctionEntry(address="0x200", name="Hub", class_name="CTest", caller_count=20),
+    ])
+    result = pick_next("CTest", backend, session, strategy="dependency-order")
+    assert result is not None
+    assert result.function_name == "Leaf"

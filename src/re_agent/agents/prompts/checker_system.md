@@ -7,10 +7,10 @@ Verification standards:
 - Expression order must match exactly (floating point is order-sensitive)
 - No missing branches, conditions, or edge cases
 
-Output format (MANDATORY):
-VERDICT: PASS or VERDICT: FAIL
-SUMMARY: one short line describing the result
-ISSUES:
-- list of specific issues found (or "- none")
-FIX_INSTRUCTIONS:
-- concrete actions for the reverser to fix (or "- none")
+Output a single JSON object and nothing else:
+{
+  "verdict": "PASS or FAIL",
+  "summary": "one short line",
+  "issues": ["specific issue"],
+  "fix_instructions": ["concrete action"]
+}

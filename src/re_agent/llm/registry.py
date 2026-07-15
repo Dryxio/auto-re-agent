@@ -28,6 +28,17 @@ def create_provider(config: LLMConfig) -> LLMProvider:
             temperature=config.temperature,
         )
 
+    if config.provider == "claude-cli":
+        from re_agent.llm.claude_cli import ClaudeCLIProvider
+
+        return ClaudeCLIProvider(
+            model=config.model or "sonnet",
+            timeout_s=config.timeout_s,
+            claude_bin=config.cli_path or "claude",
+            max_budget_usd=config.max_budget_usd,
+            effort=config.effort,
+        )
+
     if config.provider in ("openai", "openai-compat"):
         from re_agent.llm.openai_compat import OpenAIProvider
 
@@ -49,5 +60,6 @@ def create_provider(config: LLMConfig) -> LLMProvider:
 
     raise ValueError(
         f"Unknown LLM provider: {config.provider!r}. "
-        f"Supported providers: 'claude', 'openai', 'openai-compat', 'codex'."
+        f"Supported providers: 'claude', 'claude-cli', 'openai', "
+        f"'openai-compat', 'codex'."
     )

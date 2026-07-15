@@ -11,6 +11,13 @@ def test_parser_builds() -> None:
     assert parser is not None
 
 
+def test_estimate_parser_accepts_class() -> None:
+    args = build_parser().parse_args(["estimate", "--class", "CTest", "--limit", "3"])
+    assert args.command == "estimate"
+    assert args.class_name == "CTest"
+    assert args.limit == 3
+
+
 def test_no_command_returns_zero() -> None:
     assert main([]) == 0
 
