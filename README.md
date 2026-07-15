@@ -11,6 +11,10 @@ and validate C/C++ functions from compiled binaries. It combines independent
 reverser/checker models, agentic evidence gathering, candidate build and test
 gates, structural verification, and parity analysis in one autonomous workflow.
 
+> **PyPI publication pending:** `v0.2.0` is released on GitHub, but PyPI still
+> serves `0.1.0` until Trusted Publishing is authorized. Until the PyPI badge
+> above reports `0.2.0`, use the GitHub development installation below.
+
 Original pre-0.2 demo: [YouTube](https://youtu.be/zBQJYMKmwAs?si=emi1kDsJ81-2-tc3)
 
 ## What it does

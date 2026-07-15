@@ -1,5 +1,9 @@
 # Getting Started
 
+> `v0.2.0` is released on GitHub, but PyPI publication is still pending Trusted
+> Publisher authorization. If PyPI still reports `0.1.0`, use the GitHub
+> development installation documented in the main README.
+
 Install `auto-re-agent` and the Ghidra bridge from PyPI:
 
 ```bash
