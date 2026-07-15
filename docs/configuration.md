@@ -1,10 +1,11 @@
 # Configuration
 
-re-agent is configured via `re-agent.yaml`, environment variables, and CLI flags.
+re-agent is configured primarily through `re-agent.yaml`, plus the supported
+environment variables and runtime CLI flags documented below.
 
 ## Priority Order
 
-CLI flags > Environment variables > YAML config > Defaults
+Supported CLI overrides > supported environment variables > YAML config > defaults
 
 ## Environment Variables
 
@@ -55,9 +56,25 @@ agents:
     model: gpt-5.4
 ```
 
+A present role block is a complete `LLMConfig`; its individual fields are not
+merged with the top-level block.
+
+## Backend Config
+
+```yaml
+backend:
+  type: ghidra-bridge
+  cli_path: ghidra-bridge
+  timeout_s: 45
+```
+
+The `ghidra-ai-bridge` package installs the `ghidra-bridge` executable. Prepare
+its exports separately before running reversal commands.
+
 ## Project Profile
 
-The `project_profile` section makes re-agent work across different RE projects:
+The `project_profile` section makes re-agent work across different RE projects.
+This example is specifically for GTA-reversed-style source:
 
 ```yaml
 project_profile:

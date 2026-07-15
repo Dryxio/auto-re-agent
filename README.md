@@ -1,235 +1,409 @@
-# re-agent
+# auto-re-agent
 
-Evidence-driven autonomous reverse-engineering agent — independent
-reverser/checker models, agentic Ghidra analysis, candidate build/test
-validation, structural verification, and parity checks.
+Evidence-driven autonomous reverse-engineering agent with optional independent
+reverser/checker models, agentic Ghidra investigation, candidate validation,
+structural verification, and parity analysis.
 
-## Overview
+> **Release status:** the `0.2.0` code is currently available from GitHub. PyPI
+> still serves `0.1.0`, so use the source installation below until both `0.2.0`
+> packages are published.
 
-Demo: [YouTube](https://youtu.be/zBQJYMKmwAs?si=emi1kDsJ81-2-tc3)
+Original pre-0.2 demo: [YouTube](https://youtu.be/zBQJYMKmwAs?si=emi1kDsJ81-2-tc3)
 
-re-agent automates a reverse-engineering workflow by combining a reverser/checker loop with Ghidra decompilation through [ghidra-ai-bridge](https://github.com/dryxio/ghidra-ai-bridge). The current pipeline also retrieves nearby project source context during generation and runs a conservative structural verifier before accepting checker passes.
+## What it does
 
-```
+```text
 re-agent reverse --class CTrain
     │
-    ├── Config (re-agent.yaml + env + CLI)
-    │   └── project_profile (stub_markers, hook_patterns, source_layout)
-    │
-    ├── Orchestrator (single / class runner)
-    │   ├── Function Picker (ranks by caller count, filters completed)
-    │   ├── Context Gatherer (decompile + xrefs + structs + source retrieval)
-    │   │
-    │   ├── Agent Loop (reverser → checker → fix, max N rounds)
-    │   │   ├── LLM Providers: Claude API/CLI | OpenAI-compatible | Codex CLI
-    │   │   ├── Per-role providers/models (independent reverser + checker)
-    │   │   ├── Bounded read-only tool loop (context, vtables, CFG, P-code)
-    │   │   └── Prompt Templates (customizable .md files)
-    │   │
-    │   ├── Objective Verifier (call-count + control-flow sanity checks)
-    │   │
-    │   ├── Candidate Overlay (generated body replaces source body safely)
-    │   ├── Build/Test Gates (project-configurable commands)
-    │   ├── Parity Engine (GREEN/YELLOW/RED acceptance gate)
-    │   │   ├── Source Indexer (C++ body parser)
-    │   │   ├── 11 Heuristic Signals (all configurable/toggleable)
-    │   │   └── Semantic Rules + Manual Approvals
-    │   │
-    │   ├── Knowledge Graph (functions, calls, globals, strings)
-    │   └── Session State (JSON progress + bounded retries)
-    │
-    └── RE Backend: ghidra-ai-bridge
-        └── Capability flags → graceful degradation
+    ├── Configuration (YAML + supported environment overrides + CLI flags)
+    ├── Function selection (dependency-order | easiest-first | high-impact)
+    ├── Source and binary context
+    │   ├── decompile, xrefs, structs, enums, vtables, globals, and strings
+    │   └── normalized high P-code, CFG, assembly, and nearby project source
+    ├── Reverser → checker → fix loop (bounded rounds and investigations)
+    ├── Conservative structural verifier
+    ├── Candidate overlay
+    │   └── configured build, test, and runtime gates
+    ├── Candidate parity gate (GREEN | YELLOW | RED)
+    └── Reports, per-round logs, session history, and knowledge graph
 ```
+
+The tool generates candidate C/C++ implementations; it does not patch the
+original source tree automatically. A successful reversal can require four
+independent conditions:
+
+1. the LLM checker returns `PASS`;
+2. the objective verifier finds no strong structural mismatch;
+3. candidate validation satisfies the configured acceptance policy;
+4. parity is not blocked by the configured RED/YELLOW policy.
+
+This is conservative verification, not a proof of semantic equivalence.
 
 ## Requirements
 
 - Python 3.10+
-- [ghidra-ai-bridge](https://github.com/Dryxio/ghidra-ai-bridge) — re-agent uses this as its backend to decompile functions, fetch xrefs, read structs/enums, and query Ghidra. The installation commands below include a compatible bridge.
-- One supported LLM setup:
-  - `ANTHROPIC_API_KEY` for Claude
-  - `OPENAI_API_KEY` for OpenAI-compatible APIs
-  - a local `codex` CLI login for the Codex provider
+- Git, for the current source installation
+- Ghidra plus a configured
+  [ghidra-ai-bridge](https://github.com/Dryxio/ghidra-ai-bridge)
+- At least one LLM setup:
+  - Claude API: `ANTHROPIC_API_KEY`
+  - OpenAI-compatible API: `OPENAI_API_KEY`
+  - Claude CLI: an authenticated local `claude` command
+  - Codex CLI: an authenticated local `codex` command
 
 ## Installation
 
-```bash
-# Standard installation with the Ghidra query bridge
-python3 -m pip install --upgrade "auto-re-agent[ghidra-bridge]>=0.2.0"
+### Current 0.2.0 from GitHub
 
-# Or include PyGhidra for headless exports
-python3 -m pip install --upgrade "auto-re-agent[headless]>=0.2.0"
+Install the query bridge and agent directly from their current `main` branches:
+
+```bash
+python3 -m pip install --upgrade \
+  "ghidra-ai-bridge @ git+https://github.com/Dryxio/ghidra-ai-bridge.git@main" \
+  "auto-re-agent @ git+https://github.com/Dryxio/auto-re-agent.git@main"
 ```
 
-## Quick Start
+For headless Ghidra exports, install the bridge with its PyGhidra extra:
 
 ```bash
-# 1. Initialize project config
-re-agent init
+python3 -m pip install --upgrade \
+  "ghidra-ai-bridge[headless] @ git+https://github.com/Dryxio/ghidra-ai-bridge.git@main" \
+  "auto-re-agent @ git+https://github.com/Dryxio/auto-re-agent.git@main"
+```
 
-# Or start from a portable profile
+After `0.2.0` is published on PyPI, the equivalent installation will be:
+
+```bash
+python3 -m pip install --upgrade "auto-re-agent[ghidra-bridge]>=0.2.0"
+# Or: python3 -m pip install --upgrade "auto-re-agent[headless]>=0.2.0"
+```
+
+## Set up Ghidra evidence
+
+Run these commands from the project you want to reverse:
+
+```bash
+# Create ghidra-bridge.yaml, then edit its Ghidra project/program paths
+ghidra-bridge init
+
+# Requires the bridge headless extra and a local Ghidra installation
+ghidra-bridge export all
+
+# Optional but recommended when reversed source/hook patterns are available
+ghidra-bridge build-map
+
+# Confirm that exports and configuration are visible
+ghidra-bridge info
+```
+
+See the [bridge documentation](https://github.com/Dryxio/ghidra-ai-bridge)
+for its Ghidra, export, and source-map configuration.
+
+## Quick start
+
+Create a configuration in the target project:
+
+```bash
+# Recommended portable default
 re-agent init --profile generic-cpp
 
-# 2. Edit re-agent.yaml with your project settings
-
-# 3. Reverse a single function
-re-agent reverse --address 0x6F86A0
-
-# 4. Reverse all functions in a class
-re-agent reverse --class CTrain --max-functions 10
-
-# 5. Run parity checks
-re-agent parity --address 0x6F86A0
-
-# 6. Check progress
-re-agent status
-
-# Estimate tokens before a class run
-re-agent estimate --class CTrain --limit 25
+# Other available profiles
+# re-agent init --profile windows-x64
+# re-agent init --profile gta-reversed
+# re-agent init --profile openrct2
 ```
 
-## Configuration
+Running `re-agent init` without `--profile` preserves the original
+GTA-reversed defaults. Prefer an explicit profile for new projects.
 
-re-agent uses a layered configuration system (highest priority first): CLI flags > environment variables (`RE_AGENT_*`) > `re-agent.yaml` > defaults.
+Then edit `re-agent.yaml`. At minimum, select an LLM, point the backend at the
+installed bridge executable, set the source paths, and configure validation.
 
 ```yaml
 llm:
-  provider: claude           # claude | claude-cli | openai | openai-compat | codex
-  model: claude-sonnet-4-5-20250929
-  # api_key: set via RE_AGENT_LLM_API_KEY env var
-  timeout_s: 1800
+  provider: claude-cli
+  model: sonnet
 
+# Optional: use a different provider/model for checking.
 agents:
-  reverser:
-    provider: claude-cli
-    model: sonnet
-    max_budget_usd: 1.0
   checker:
     provider: codex
     model: gpt-5.4
 
 backend:
   type: ghidra-bridge
-  cli_path: ~/ghidra-tools/ghidra
+  cli_path: ghidra-bridge
+
+project_profile:
+  name: generic-cpp
+  language_standard: C++20
+  source_root: src
+  hooks_csv: null
 
 orchestrator:
   max_review_rounds: 4
-  max_functions_per_class: 10
-  objective_verifier_enabled: true
   investigation_enabled: true
   max_investigations: 8
   selection_strategy: dependency-order
+  max_attempts_per_function: 3
 
 validation:
   enabled: true
   copy_project: true
   project_root: .
   build_commands:
-    - 'cmake -S . -B build'
-    - 'cmake --build build --target game'
+    - cmake -S . -B build
+    - cmake --build build
   test_commands:
-    - 'ctest --test-dir build --output-on-failure'
+    - ctest --test-dir build --output-on-failure
   require_build: true
+  require_tests: true
   require_verified: true
-  # Explicitly attest that these project-owned commands are meaningful gates.
+  # This explicitly attests that the project-owned shell commands above are
+  # meaningful validation gates. Leave false for untrusted commands.
   trust_configured_commands: true
   keep_project_copy: false
   parity_fail_on_red: true
-
-project_profile:
-  source_root: ./source/game_sa
-  hook_patterns:
-    - 'RH_ScopedInstall\s*\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+)'
-  stub_markers: ["NOTSA_UNREACHABLE"]
-  stub_call_prefix: "plugin::Call"
+  parity_fail_on_yellow: false
 ```
 
-See [docs/configuration.md](docs/configuration.md) for all options.
+Validation is deliberately strict: with the generated defaults, no configured
+commands produce `UNKNOWN`, and `require_verified: true` rejects that result.
+For exploration without build validation, explicitly set
+`validation.enabled: false`; such results are not build-verified.
 
-## CLI Reference
+Start with one function before launching a class run:
 
-| Command | Description |
-|---------|-------------|
-| `re-agent init` | Generate `re-agent.yaml` config file |
-| `re-agent reverse --address ADDR` | Reverse a single function |
-| `re-agent reverse --class CLASS` | Reverse all functions in a class |
-| `re-agent reverse --dry-run` | Show what would be reversed |
-| `re-agent parity --address ADDR` | Run parity checks on a function |
-| `re-agent parity --filter REGEX` | Run parity checks matching pattern |
-| `re-agent status` | Show reversal progress |
-| `re-agent status --class CLASS` | Show progress for a specific class |
-| `re-agent estimate --class CLASS` | Estimate token usage before running |
+```bash
+re-agent reverse --address 0x401000
+re-agent reverse --class CTrain --max-functions 10
+re-agent status
+```
 
-## LLM Providers
+## LLM providers
 
-- **Claude API** (Anthropic SDK) — set `ANTHROPIC_API_KEY`
-- **Claude CLI** — uses `claude -p` and an existing Claude Code login; supports real session resume, effort, usage, and per-call USD budgets
-- **OpenAI / OpenAI-compatible** — set `OPENAI_API_KEY`, optionally set `base_url`
-- **Codex CLI** — uses local `codex exec` with ChatGPT login credentials; no API key required
+### Claude API
 
-## Parity Engine
+```yaml
+llm:
+  provider: claude
+  model: claude-sonnet-4-5-20250929
+```
 
-The parity engine runs 11 configurable heuristic signals against the generated
-candidate overlay—not a stale source-tree body. Red parity is blocking by
-default.
+Set `ANTHROPIC_API_KEY` or `RE_AGENT_LLM_API_KEY`.
+
+### Claude CLI
+
+Authenticate the local Claude Code CLI first, then configure:
+
+```yaml
+llm:
+  provider: claude-cli
+  model: sonnet
+  cli_path: claude
+  effort: high
+  max_budget_usd: 1.0
+```
+
+Claude CLI supports real session resume and reports usage/cost metadata. A
+stale CLI login can still require re-authentication even when its auth-status
+command reports a session.
+
+### OpenAI-compatible APIs
+
+```yaml
+llm:
+  provider: openai # or openai-compat
+  model: your-model
+  base_url: https://your-endpoint.example/v1 # optional
+```
+
+Set `OPENAI_API_KEY` or `RE_AGENT_LLM_API_KEY`.
+
+### Codex CLI
+
+```yaml
+llm:
+  provider: codex
+  model: gpt-5.4
+```
+
+Codex uses the authenticated local `codex exec` command. CLI-provider
+`max_tokens` values are planning allowances, not hard output limits.
+
+Omit `agents.reverser` or `agents.checker` to reuse the top-level `llm`
+configuration for that role. A role block is a complete role configuration,
+not a field-by-field merge with `llm`.
+
+## Evidence and investigation
+
+When supported by the backend, the reverser preloads a bounded evidence bundle
+and can request additional read-only operations:
+
+- `decompile`, `xrefs_from`, and `xrefs_to`
+- `struct` and `enum`
+- `vtable`, `global`, and `strings`
+- `context`, normalized `pcode`, and `cfg`
+
+Evidence bundle data is also ingested into
+`reports/re-agent/knowledge-graph.json`, connecting functions, calls, globals,
+and strings. Unsupported bridge capabilities degrade gracefully.
+
+## Candidate validation
+
+Generated code is written to an overlay. With `copy_project: true`, the project
+is copied to a temporary directory, the candidate replaces the matching body
+there, and commands run from that copy. `.git`, `.venv`, `build`, `reports`, and
+Python cache files are not copied. Temporary project copies are deleted unless
+`keep_project_copy: true`.
+
+Commands may use:
+
+- `{candidate_file}`, `{overlay_root}`, and `{source_file}` placeholders;
+- `RE_AGENT_CANDIDATE_FILE`, `RE_AGENT_OVERLAY_ROOT`, and
+  `RE_AGENT_SOURCE_FILE` environment variables.
+
+Configured build/test/runtime commands are arbitrary project-owned shell
+commands. The agent cannot prove from their text that they actually validate a
+candidate, so they only become acceptance evidence when
+`trust_configured_commands: true` is set explicitly.
+
+If multiple C++ definitions match an overloaded method and the source cannot be
+disambiguated, the overlay is rejected instead of replacing an arbitrary body.
+
+## Verification and parity
+
+The objective verifier runs on each review round. It compares generated code
+with available decompile, assembly, CFG, and normalized high P-code evidence.
+It returns `FAIL` only for strong mismatches; insufficient evidence returns
+`UNKNOWN`.
+
+The reversal pipeline runs the 11 built-in heuristic parity signals against the
+generated candidate body. RED is blocking by default; YELLOW can be made
+blocking with `validation.parity_fail_on_yellow`.
+
+The standalone command is different: `re-agent parity` analyzes functions in
+the existing source tree. It also supports semantic-rule files and manual check
+overrides. Its process exit code remains zero on RED unless `--strict-exit` is
+used.
+
+The 11 built-in signals are:
 
 | Signal | Level | Description |
-|--------|-------|-------------|
-| Missing source | RED | No source body found for hooked function |
-| Stub markers | RED | Source contains stub markers (e.g., NOTSA_UNREACHABLE) |
-| Trivial stub | RED | Plugin-call heavy with tiny body and no control flow |
-| Large ASM tiny source | RED | ASM >= 80 instructions but source <= 12 lines |
-| Plugin-call heavy | YELLOW | Plugin calls dominate the function body |
-| Short body | YELLOW | Body has fewer than 6 lines |
-| Low call count | YELLOW | Decompile shows many callees but source has few |
-| FP sensitivity | YELLOW | ASM has floating-point ops but source doesn't |
-| Call count mismatch | YELLOW | Source call count differs significantly from ASM |
-| NaN logic | YELLOW | Decompile has NaN handling but source doesn't |
-| Inline wrapper | INFO | Function is a thin inline wrapper |
+|---|---|---|
+| Missing source | RED | No source body was found |
+| Stub markers | RED | Source contains a configured stub marker |
+| Trivial stub | RED | Small plugin-call-heavy body with no control flow |
+| Large ASM, tiny source | RED | Large disassembly with a very small source body |
+| Plugin-call heavy | YELLOW | Plugin calls dominate the source body |
+| Short body | YELLOW | Body has fewer than six lines |
+| Low call count | YELLOW | Decompiled callees greatly exceed source calls |
+| FP sensitivity | YELLOW | Assembly has FP-sensitive operations but source has no math tokens |
+| Call-count mismatch | YELLOW | Source and assembly call counts differ beyond the configured threshold |
+| NaN logic | YELLOW | Decompile indicates NaN-sensitive behavior missing from source |
+| Inline wrapper | INFO | Source forwards to an internal implementation |
 
-## Objective Verifier
+The signal set is fixed in `0.2.0`; configuration exposes selected thresholds,
+inline-wrapper behavior, semantic rules, and manual overrides rather than an
+individual toggle for every signal.
 
-The reversal loop also runs a conservative structural verifier after the LLM checker passes. It only blocks acceptance on strong mismatches such as:
+## CLI reference
 
-- call-count gaps between candidate code and decompile/ASM
-- control-flow gaps where the candidate is clearly missing branches or loops
+Global options must precede the subcommand, for example
+`re-agent --config custom.yaml status`.
 
-This is intentionally narrower than full equivalence checking, but it catches obvious false positives before they are recorded as successful reversals.
+| Command | Purpose |
+|---|---|
+| `re-agent init --profile generic-cpp` | Create `re-agent.yaml` from a profile |
+| `re-agent reverse --address ADDR` | Reverse one function |
+| `re-agent reverse --class CLASS --max-functions N` | Reverse a bounded class batch |
+| `re-agent reverse --class CLASS --dry-run` | Show a target plan without LLM calls |
+| `re-agent reverse ... --max-rounds N --skip-parity` | Override loop/parity behavior |
+| `re-agent parity --address ADDR --strict-exit` | Analyze an existing source function |
+| `re-agent parity --filter REGEX --limit N --output report.json` | Filter and export parity results |
+| `re-agent parity ... --skip-ghidra` | Run source-only parity signals |
+| `re-agent status --class CLASS --format text` | Show session progress |
+| `re-agent estimate --address ADDR` | Estimate one function |
+| `re-agent estimate --class CLASS --limit N` | Estimate a class batch |
 
-This matters in practice because an LLM checker can still false-positive on code that looks plausible while missing real branch or call structure from the binary.
+Use `re-agent <command> --help` for the exact option list.
 
-When supported by `ghidra-ai-bridge`, the verifier also consumes normalized
-high P-code and CFG exports. Candidate build/test commands receive
-`RE_AGENT_CANDIDATE_FILE`, `RE_AGENT_OVERLAY_ROOT`, and
-`RE_AGENT_SOURCE_FILE` environment variables.
+## Configuration precedence
+
+The effective order is CLI runtime overrides, supported environment variables,
+`re-agent.yaml`, then dataclass defaults. The currently supported environment
+variables are:
+
+- `RE_AGENT_LLM_PROVIDER`
+- `RE_AGENT_LLM_API_KEY`
+- `RE_AGENT_LLM_MODEL`
+- `RE_AGENT_LLM_BASE_URL`
+- `RE_AGENT_BACKEND_CLI_PATH`
+- `RE_AGENT_BACKEND_TIMEOUT`
+
+Role-specific `agents.*` configuration, validation, project profiles, parity,
+and output paths should be configured in YAML.
+
+See [docs/configuration.md](docs/configuration.md) for the complete schema.
+
+## Profiles
+
+- `generic-cpp`: portable C/C++ defaults
+- `windows-x64`: Microsoft x64-oriented prompt rules
+- `gta-reversed`: GTA-reversed hooks, stubs, source paths, and project rules
+- `openrct2`: OpenRCT2-oriented hook/stub patterns
+
+Profiles initialize project configuration; they do not replace bridge exports
+or project-specific validation commands.
+
+## Outputs
+
+Default artifacts include:
+
+- `reports/re-agent/code/`: final generated code per function
+- `reports/re-agent/logs/`: per-round reverser/checker prompts, responses, and provider metadata
+- `reports/re-agent/candidates/`: non-isolated candidate overlays
+- `reports/re-agent/knowledge-graph.json`: persistent evidence graph
+- `re-agent-progress.json`: current per-function state plus run history
+
+The session file is atomically rewritten on save. Its `functions` map stores the
+latest state per address, while its `runs` list preserves recorded attempts.
+
+## Safety and limitations
+
+- re-agent does not commit or push generated code;
+- candidate generation does not overwrite the original source tree;
+- review rounds, evidence actions, and per-function attempts are bounded;
+- prompt/response logs are written per review round, not for every internal
+  evidence-loop call;
+- configured validation commands execute through `/bin/sh` and should only be
+  trusted when they are controlled by the project owner;
+- structural and parity checks catch useful mismatches but do not prove binary
+  equivalence;
+- real Ghidra/PyGhidra integration depends on the local Ghidra project and has
+  to be tested in that environment.
 
 ## Why ghidra-ai-bridge stays separate
 
-`ghidra-ai-bridge` is a reusable Ghidra analysis layer and remains an
-independent package. `auto-re-agent` depends on its versioned evidence
-interface through the backend protocol, which keeps room for future IDA,
-Binary Ninja, or other analysis backends.
-
-## Safety
-
-- **No auto-commit**: re-agent writes code but never commits or pushes
-- **Bounded retries**: Hard cap on fix loop iterations (default: 4)
-- **Deterministic logs**: Every LLM call logged with timestamps
-- **Safe overlays**: Generated candidates never overwrite the source tree
-- **Explicit validation**: Build/test commands run only when configured by the user
-- **Session isolation**: Progress appended, never overwritten
+`ghidra-ai-bridge` remains an independent analysis package with a versioned
+JSON/CLI evidence surface. auto-re-agent consumes it through a capability-based
+backend, leaving room for future IDA, Binary Ninja, or other backends.
 
 ## Development
 
 ```bash
-git clone https://github.com/dryxio/auto-re-agent.git
+git clone https://github.com/Dryxio/auto-re-agent.git
+git clone https://github.com/Dryxio/ghidra-ai-bridge.git
 cd auto-re-agent
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
 
-pytest tests/
-ruff check src/
-mypy src/re_agent/
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e "../ghidra-ai-bridge[headless]"
+python3 -m pip install -e ".[dev]"
+
+pytest -q
+ruff check src tests
+mypy src
 ```
 
 ## License

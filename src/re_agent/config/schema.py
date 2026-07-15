@@ -70,7 +70,7 @@ class BackendConfig:
     """Decompiler backend configuration."""
 
     type: str = "ghidra-bridge"
-    cli_path: str = "ghidra"
+    cli_path: str = "ghidra-bridge"
     timeout_s: int = 45
 
 

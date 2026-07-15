@@ -1,40 +1,57 @@
 # Getting Started
 
-## Installation
+The `0.2.0` packages are not yet published on PyPI. Install the current source
+versions from GitHub:
 
 ```bash
-# Standard installation with the Ghidra query bridge
-python3 -m pip install --upgrade "auto-re-agent[ghidra-bridge]>=0.2.0"
-
-# Or include PyGhidra for headless exports
-python3 -m pip install --upgrade "auto-re-agent[headless]>=0.2.0"
+python3 -m pip install --upgrade \
+  "ghidra-ai-bridge[headless] @ git+https://github.com/Dryxio/ghidra-ai-bridge.git@main" \
+  "auto-re-agent @ git+https://github.com/Dryxio/auto-re-agent.git@main"
 ```
 
-## Quick Start
+## Prepare Ghidra
 
-1. Initialize configuration:
 ```bash
-re-agent init
+ghidra-bridge init
+# Edit ghidra-bridge.yaml with the local Ghidra project and program.
+ghidra-bridge export all
+ghidra-bridge build-map # optional when source/hook patterns are configured
+ghidra-bridge info
 ```
 
-2. Edit `re-agent.yaml` with your LLM API key and Ghidra bridge path.
+## Configure the agent
 
-3. Reverse a single function:
 ```bash
-re-agent reverse --address 0x6F86A0 --class CTrain
+re-agent init --profile generic-cpp
 ```
 
-4. Reverse a full class:
+Edit `re-agent.yaml` to configure:
+
+- an authenticated LLM provider;
+- `backend.cli_path: ghidra-bridge`;
+- the project source paths and patterns;
+- trusted build/test commands for candidate validation.
+
+Validation is strict by default. With no configured commands it returns
+`UNKNOWN`, which `require_verified: true` rejects. Configure meaningful project
+gates and set `trust_configured_commands: true`, or explicitly disable
+validation for an unverified exploratory run.
+
+## Run
+
 ```bash
+# Start with one function
+re-agent reverse --address 0x401000
+
+# Then run a bounded class batch
 re-agent reverse --class CTrain --max-functions 5
-```
 
-5. Run parity checks:
-```bash
-re-agent parity --limit 50
-```
+# Analyze existing source-tree parity
+re-agent parity --address 0x401000 --strict-exit
 
-6. Check progress:
-```bash
+# Inspect recorded progress
 re-agent status
 ```
+
+See the repository [README](../README.md) for providers, validation semantics,
+profiles, outputs, safety notes, and the complete CLI overview.

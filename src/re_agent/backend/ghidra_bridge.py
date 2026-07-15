@@ -30,7 +30,7 @@ class GhidraBridgeBackend:
         timeout_s: Maximum seconds per CLI invocation.
     """
 
-    def __init__(self, cli_path: str = "ghidra", timeout_s: int = 45) -> None:
+    def __init__(self, cli_path: str = "ghidra-bridge", timeout_s: int = 45) -> None:
         self._cli_path = cli_path
         self._timeout_s = timeout_s
         self._caps: BackendCapabilities | None = None
