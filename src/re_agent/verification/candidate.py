@@ -31,7 +31,7 @@ def create_candidate_overlay(
     copy_project: bool = False,
 ) -> Path:
     """Write a source overlay with the original function body replaced."""
-    safe_address = re.sub(r"[^A-Za-z0-9_.-]", "_", target.address)
+    safe_address = _sanitize_path_component(target.address)
     overlay_root: Path | None = None
     try:
         if copy_project:
@@ -54,8 +54,8 @@ def create_candidate_overlay(
             "schema_version=1\n", encoding="utf-8"
         )
         if source is None:
-            safe_class_name = re.sub(r"[^A-Za-z0-9_.-]", "_", target.class_name)
-            safe_function_name = re.sub(r"[^A-Za-z0-9_.-]", "_", target.function_name)
+            safe_class_name = _sanitize_path_component(target.class_name)
+            safe_function_name = _sanitize_path_component(target.function_name)
             candidate_file = overlay_root / f"{safe_class_name}_{safe_function_name}.cpp"
             candidate_file.parent.mkdir(parents=True, exist_ok=True)
             candidate_file.write_text(code.rstrip() + "\n", encoding="utf-8")
@@ -193,6 +193,11 @@ def cleanup_candidate_overlay(candidate_file: Path) -> None:
     root = _overlay_root(candidate_file)
     if root.name.startswith("re-agent-") and (root / ".re-agent-overlay").exists():
         shutil.rmtree(root, ignore_errors=True)
+
+
+def _sanitize_path_component(value: str) -> str:
+    """Replace characters that are illegal in host filesystem names."""
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", value)
 
 
 def _consumes_candidate(command: str) -> bool:
